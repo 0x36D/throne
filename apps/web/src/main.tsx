@@ -1,6 +1,8 @@
 import {
-  runFalseReportScenario,
-  type FalseReportRun,
+  partialImplementationIds,
+  runPartialImplementationScenario,
+  type PartialImplementationActorView,
+  type PartialImplementationRun,
 } from "@throne/scenario-mvp";
 import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -9,9 +11,9 @@ import "./styles.css";
 const modes = [
   {
     name: "Play",
-    status: "First vertical slice",
+    status: "Second vertical slice",
     description:
-      "The player acts as the ruler and sees only reports that reach that role.",
+      "The player rules through orders and reports, never through direct access to objective state.",
   },
   {
     name: "Observe",
@@ -28,11 +30,14 @@ const modes = [
 ];
 
 function App() {
-  const [run, setRun] = useState<FalseReportRun>();
+  const [run, setRun] = useState<PartialImplementationRun>();
   const [view, setView] = useState<"ruler" | "debug">("ruler");
+  const [moment, setMoment] = useState<"before" | "after">("before");
 
   useEffect(() => {
-    void runFalseReportScenario("web-false-report").then(setRun);
+    void runPartialImplementationScenario("web-partial-implementation").then(
+      setRun,
+    );
   }, []);
 
   return (
@@ -47,33 +52,55 @@ function App() {
       </header>
 
       <section className={`scenario ${view === "debug" ? "debug" : ""}`}>
-        <div className="section-heading">
+        <div className="section-heading scenario-heading">
           <div>
             <p className="eyebrow">LIVE VERTICAL SLICE</p>
-            <h2>False report</h2>
+            <h2>Partial implementation</h2>
           </div>
-          <div className="view-switch" aria-label="Simulation perspective">
-            <button
-              className={view === "ruler" ? "active" : ""}
-              onClick={() => setView("ruler")}
-            >
-              Ruler view
-            </button>
-            <button
-              className={view === "debug" ? "active" : ""}
-              onClick={() => setView("debug")}
-            >
-              Debug truth
-            </button>
+          <div className="scenario-controls">
+            <div className="view-switch" aria-label="Moment in the scenario">
+              <button
+                className={moment === "before" ? "active" : ""}
+                onClick={() => setMoment("before")}
+              >
+                Before audit
+              </button>
+              <button
+                className={moment === "after" ? "active" : ""}
+                onClick={() => setMoment("after")}
+              >
+                After audit
+              </button>
+            </div>
+            <div className="view-switch" aria-label="Simulation perspective">
+              <button
+                className={view === "ruler" ? "active" : ""}
+                onClick={() => setView("ruler")}
+              >
+                Ruler view
+              </button>
+              <button
+                className={view === "debug" ? "active" : ""}
+                onClick={() => setView("debug")}
+              >
+                Debug truth
+              </button>
+            </div>
           </div>
         </div>
 
         {!run ? (
           <p className="loading">Running scenario…</p>
         ) : view === "ruler" ? (
-          <RulerView run={run} />
+          <RulerView
+            view={
+              moment === "before"
+                ? run.rulerViewBeforeAudit
+                : run.rulerViewAfterAudit
+            }
+          />
         ) : (
-          <DebugView run={run} />
+          <DebugView run={run} moment={moment} />
         )}
       </section>
 
@@ -98,93 +125,173 @@ function App() {
       <section className="boundary" aria-labelledby="boundary-heading">
         <div>
           <p className="eyebrow">CURRENT BOUNDARY</p>
-          <h2 id="boundary-heading">
-            The world and its minds remain separate.
-          </h2>
+          <h2 id="boundary-heading">An order is not an effect.</h2>
         </div>
         <ol>
-          <li>Objective world state</li>
-          <li>Actor observation and belief</li>
-          <li>Decision and structured intent</li>
-          <li>Scheduled operation and committed event</li>
+          <li>Order travels through the world</li>
+          <li>Subordinate acknowledges it</li>
+          <li>Capacity limits actual implementation</li>
+          <li>A report may conceal the result</li>
         </ol>
       </section>
     </main>
   );
 }
 
-function RulerView({ run }: { run: FalseReportRun }) {
-  const belief = run.rulerView.beliefs[0];
+function RulerView({ view }: { view: PartialImplementationActorView }) {
+  const completed = view.order.reportedFulfilledAmount ?? 0;
+  const verified = view.order.verifiedFulfilledAmount;
   return (
-    <div className="scenario-grid">
-      <div>
-        <p className="panel-label">Reports received</p>
-        <div className="report-list">
-          {run.rulerView.observations.map((observation) => {
-            const report = readReport(observation.payload.report);
+    <div className="order-layout">
+      <div className="command-panel">
+        <p className="panel-label">Royal command</p>
+        <h3>Send grain to the capital</h3>
+        <p className="command-copy">
+          Governor Ren is ordered to transfer provisions from the Northern
+          Provincial Granary to the Capital Relief Granary.
+        </p>
+        <div className="order-metrics">
+          <div>
+            <span>Ordered</span>
+            <strong>{view.order.requestedAmount}</strong>
+          </div>
+          <div>
+            <span>{verified === undefined ? "Reported" : "Audit found"}</span>
+            <strong>{verified ?? completed}</strong>
+          </div>
+        </div>
+        <div
+          className={`status-banner ${verified === undefined ? "success" : "warning"}`}
+        >
+          <span>Known status</span>
+          <strong>{humanize(view.order.knownStatus)}</strong>
+        </div>
+        <p className="fog-note">
+          {verified === undefined
+            ? "No objective ledger is available to the ruler. The completion figure comes from the governor's own return."
+            : `The independent audit contradicts the earlier return by ${completed - verified} units.`}
+        </p>
+      </div>
+
+      <div className="document-panel">
+        <p className="panel-label">Documents received</p>
+        <div className="document-list">
+          {view.observations.map((observation) => {
+            const report = readOrderReport(observation.payload.report);
             return (
-              <article className="report" key={observation.id}>
+              <article className="document" key={observation.id}>
                 <div className="card-topline">
                   <span>t = {observation.observedAt}</span>
-                  <span>{report.basis.replaceAll("_", " ")}</span>
+                  <span>
+                    {humanize(report?.basis ?? observation.sourceType)}
+                  </span>
                 </div>
-                <strong>{String(report.value)} units</strong>
-                <p>Reported grain stock in the Northern Province.</p>
+                <h3>
+                  {observation.sourceType === "acknowledgement"
+                    ? "Order acknowledged"
+                    : report?.basis === "independent_audit"
+                      ? `${report.amount} units verified`
+                      : `${report?.amount ?? "—"} units complete`}
+                </h3>
+                <p>
+                  {observation.sourceType === "acknowledgement"
+                    ? "The Northern Governor confirms receipt of the command."
+                    : report?.basis === "independent_audit"
+                      ? "Inspector Lin reports the amount that actually reached the capital ledger."
+                      : "Governor Ren reports that the royal command has been fulfilled in full."}
+                </p>
               </article>
             );
           })}
         </div>
       </div>
-
-      <div className="belief-panel">
-        <p className="panel-label">Current belief</p>
-        <h3>Northern grain stock</h3>
-        {belief?.candidates.map((candidate) => (
-          <div className="candidate" key={String(candidate.value)}>
-            <strong>{String(candidate.value)}</strong>
-            <span>{Math.round(candidate.confidence * 100)}% confidence</span>
-          </div>
-        ))}
-        <p className="warning">
-          {run.rulerView.contradictions.length} unresolved contradiction
-          detected. Objective stock remains unavailable in this perspective.
-        </p>
-      </div>
     </div>
   );
 }
 
-function DebugView({ run }: { run: FalseReportRun }) {
-  const region = run.debugTruth.regions["region:north"];
-  const falseReport = run.debugTruth.reports["report:governor-return"];
+function DebugView({
+  run,
+  moment,
+}: {
+  run: PartialImplementationRun;
+  moment: "before" | "after";
+}) {
+  const order = run.debugTruth.orders[partialImplementationIds.order];
+  const northern =
+    run.debugTruth.accounts[partialImplementationIds.northernGranary];
+  const capital =
+    run.debugTruth.accounts[partialImplementationIds.capitalGranary];
   return (
-    <div className="debug-panel">
+    <div className="debug-panel order-debug">
       <p className="debug-banner">
         ADMINISTRATOR VIEW — OBJECTIVE STATE EXPOSED
       </p>
-      <div className="truth-number">{region?.grainStock}</div>
-      <p>Actual grain units in {region?.name}.</p>
-      <div className="debug-comparison">
-        <span>Governor claimed</span>
-        <strong>{String(falseReport?.claim.value)}</strong>
-        <span>Objective discrepancy</span>
-        <strong>
-          {Number(falseReport?.claim.value) - Number(region?.grainStock)}
-        </strong>
+      <div className="debug-order-grid">
+        <div>
+          <p className="panel-label">Actually transferred</p>
+          <div className="truth-number">{order?.fulfilledAmount}</div>
+          <p>
+            of {order?.requestedAmount} ordered units. The governor's capacity
+            limited execution before either report reached the ruler.
+          </p>
+        </div>
+        <div className="ledger">
+          <p className="panel-label">Objective ledger</p>
+          <div>
+            <span>{northern?.name}</span>
+            <strong>{northern?.balance}</strong>
+          </div>
+          <div>
+            <span>{capital?.name}</span>
+            <strong>{capital?.balance}</strong>
+          </div>
+          <div>
+            <span>Falsely reported</span>
+            <strong>{order?.reportedFulfilledAmount}</strong>
+          </div>
+        </div>
       </div>
+      <div className="lifecycle">
+        <p className="panel-label">Order lifecycle</p>
+        <div className="lifecycle-track">
+          {order?.lifecycle.map((entry) => (
+            <div key={entry.eventId}>
+              <span>t={entry.occurredAt}</span>
+              <strong>{humanize(entry.status)}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+      <p className="debug-caption">
+        {moment === "before"
+          ? "At this moment the ruler has accepted the completion return; the partial transfer already exists in objective state."
+          : "The audit changes the ruler's knowledge. It does not retroactively change what happened."}
+      </p>
     </div>
   );
 }
 
-function readReport(value: unknown): { basis: string; value: unknown } {
+function readOrderReport(
+  value: unknown,
+): { basis: string; amount: number } | undefined {
   if (!value || Array.isArray(value) || typeof value !== "object") {
-    return { basis: "unknown source", value: "unknown" };
+    return undefined;
   }
-  const report = value as { basis?: unknown; claim?: { value?: unknown } };
-  return {
-    basis: typeof report.basis === "string" ? report.basis : "unknown source",
-    value: report.claim?.value ?? "unknown",
+  const report = value as {
+    basis?: unknown;
+    claimedFulfilledAmount?: unknown;
   };
+  if (
+    typeof report.basis !== "string" ||
+    typeof report.claimedFulfilledAmount !== "number"
+  ) {
+    return undefined;
+  }
+  return { basis: report.basis, amount: report.claimedFulfilledAmount };
+}
+
+function humanize(value: string): string {
+  return value.replaceAll("_", " ");
 }
 
 const root = document.getElementById("root");

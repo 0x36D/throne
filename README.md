@@ -15,7 +15,7 @@ pnpm demo
 pnpm dev
 ```
 
-`pnpm demo` runs the false-report scenario through the event kernel. `pnpm dev` starts the local web shell with separate ruler and administrator views.
+`pnpm demo` runs the partial-implementation scenario through the event kernel. `pnpm dev` starts the local web shell with ruler knowledge before and after an audit, plus a separate administrator view of objective truth.
 
 ## Runtime shape
 
