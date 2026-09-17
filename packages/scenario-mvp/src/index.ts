@@ -3,6 +3,7 @@ import type { DomainModel } from "@throne/sim-core";
 
 export * from "./false-report.ts";
 export * from "./partial-implementation.ts";
+export * from "./contradictory-orders.ts";
 
 export type BootstrapMessage = {
   readonly id: string;
