@@ -1,4 +1,8 @@
-import { StrictMode } from "react";
+import {
+  runFalseReportScenario,
+  type FalseReportRun,
+} from "@throne/scenario-mvp";
+import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
@@ -24,6 +28,13 @@ const modes = [
 ];
 
 function App() {
+  const [run, setRun] = useState<FalseReportRun>();
+  const [view, setView] = useState<"ruler" | "debug">("ruler");
+
+  useEffect(() => {
+    void runFalseReportScenario("web-false-report").then(setRun);
+  }, []);
+
   return (
     <main>
       <header>
@@ -34,6 +45,37 @@ function App() {
           information, relationships, resources, and decisions made in time.
         </p>
       </header>
+
+      <section className={`scenario ${view === "debug" ? "debug" : ""}`}>
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">LIVE VERTICAL SLICE</p>
+            <h2>False report</h2>
+          </div>
+          <div className="view-switch" aria-label="Simulation perspective">
+            <button
+              className={view === "ruler" ? "active" : ""}
+              onClick={() => setView("ruler")}
+            >
+              Ruler view
+            </button>
+            <button
+              className={view === "debug" ? "active" : ""}
+              onClick={() => setView("debug")}
+            >
+              Debug truth
+            </button>
+          </div>
+        </div>
+
+        {!run ? (
+          <p className="loading">Running scenario…</p>
+        ) : view === "ruler" ? (
+          <RulerView run={run} />
+        ) : (
+          <DebugView run={run} />
+        )}
+      </section>
 
       <section aria-labelledby="modes-heading">
         <div className="section-heading">
@@ -69,6 +111,80 @@ function App() {
       </section>
     </main>
   );
+}
+
+function RulerView({ run }: { run: FalseReportRun }) {
+  const belief = run.rulerView.beliefs[0];
+  return (
+    <div className="scenario-grid">
+      <div>
+        <p className="panel-label">Reports received</p>
+        <div className="report-list">
+          {run.rulerView.observations.map((observation) => {
+            const report = readReport(observation.payload.report);
+            return (
+              <article className="report" key={observation.id}>
+                <div className="card-topline">
+                  <span>t = {observation.observedAt}</span>
+                  <span>{report.basis.replaceAll("_", " ")}</span>
+                </div>
+                <strong>{String(report.value)} units</strong>
+                <p>Reported grain stock in the Northern Province.</p>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="belief-panel">
+        <p className="panel-label">Current belief</p>
+        <h3>Northern grain stock</h3>
+        {belief?.candidates.map((candidate) => (
+          <div className="candidate" key={String(candidate.value)}>
+            <strong>{String(candidate.value)}</strong>
+            <span>{Math.round(candidate.confidence * 100)}% confidence</span>
+          </div>
+        ))}
+        <p className="warning">
+          {run.rulerView.contradictions.length} unresolved contradiction
+          detected. Objective stock remains unavailable in this perspective.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function DebugView({ run }: { run: FalseReportRun }) {
+  const region = run.debugTruth.regions["region:north"];
+  const falseReport = run.debugTruth.reports["report:governor-return"];
+  return (
+    <div className="debug-panel">
+      <p className="debug-banner">
+        ADMINISTRATOR VIEW — OBJECTIVE STATE EXPOSED
+      </p>
+      <div className="truth-number">{region?.grainStock}</div>
+      <p>Actual grain units in {region?.name}.</p>
+      <div className="debug-comparison">
+        <span>Governor claimed</span>
+        <strong>{String(falseReport?.claim.value)}</strong>
+        <span>Objective discrepancy</span>
+        <strong>
+          {Number(falseReport?.claim.value) - Number(region?.grainStock)}
+        </strong>
+      </div>
+    </div>
+  );
+}
+
+function readReport(value: unknown): { basis: string; value: unknown } {
+  if (!value || Array.isArray(value) || typeof value !== "object") {
+    return { basis: "unknown source", value: "unknown" };
+  }
+  const report = value as { basis?: unknown; claim?: { value?: unknown } };
+  return {
+    basis: typeof report.basis === "string" ? report.basis : "unknown source",
+    value: report.claim?.value ?? "unknown",
+  };
 }
 
 const root = document.getElementById("root");

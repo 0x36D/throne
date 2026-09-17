@@ -8,6 +8,7 @@
     "dev": "vite"
   },
   "dependencies": {
+    "@throne/scenario-mvp": "workspace:*",
     "@vitejs/plugin-react": "^6.1.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

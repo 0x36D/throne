@@ -1,27 +1,8 @@
-import { bootstrapInitialState, bootstrapModel } from "@throne/scenario-mvp";
-import { simTime } from "@throne/shared-types";
-import { InMemoryEventStore, SimulationKernel } from "@throne/sim-core";
+import { runFalseReportScenario } from "@throne/scenario-mvp";
 
-const store = new InMemoryEventStore();
-const kernel = new SimulationKernel(
-  bootstrapInitialState,
-  bootstrapModel,
-  store,
-  "bootstrap",
-);
+const run = await runFalseReportScenario();
 
-await kernel.schedule({
-  eventType: "message.depart",
-  scheduledAt: simTime(10),
-  actorId: "governor",
-  targetIds: ["ruler"],
-  payload: { messageId: "message-1" },
-});
-
-await kernel.runUntilIdle();
-
-const records = await store.readAll();
-for (const record of records) {
+for (const record of run.records) {
   if (record.kind === "committed") {
     console.log(
       `[t=${record.event.occurredAt}] ${record.event.eventType} ${JSON.stringify(record.event.payload)}`,
@@ -29,4 +10,7 @@ for (const record of records) {
   }
 }
 
-console.log(`Final state: ${JSON.stringify(kernel.state, null, 2)}`);
+console.log("\nRuler view:");
+console.log(JSON.stringify(run.rulerView, null, 2));
+console.log("\nDebug truth:");
+console.log(JSON.stringify(run.debugTruth, null, 2));

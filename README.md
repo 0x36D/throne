@@ -15,7 +15,7 @@ pnpm demo
 pnpm dev
 ```
 
-`pnpm demo` runs a tiny headless message-delivery scenario through the event kernel. `pnpm dev` starts the local web shell.
+`pnpm demo` runs the false-report scenario through the event kernel. `pnpm dev` starts the local web shell with separate ruler and administrator views.
 
 ## Runtime shape
 
