@@ -2,6 +2,7 @@ import { addSimTime, type DomainEvent } from "@throne/shared-types";
 import type { DomainModel } from "@throne/sim-core";
 
 export * from "./false-report.ts";
+export * from "./partial-implementation.ts";
 
 export type BootstrapMessage = {
   readonly id: string;
