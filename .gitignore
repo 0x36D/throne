@@ -8,3 +8,4 @@ coverage/
 *.log
 .dsh/
 runs/
+secret/
