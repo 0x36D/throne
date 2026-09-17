@@ -2,7 +2,7 @@
 
 Throne is an experimental political simulation engine. It separates objective world state from what each actor can observe, believe, decide, attempt, and actually accomplish.
 
-The current repository is an architectural scaffold. The product specification is in [SPEC.md](./SPEC.md), the current implementation snapshot is in [STATUS.md](./STATUS.md), and the main architectural decisions are under [docs/architecture](./docs/architecture).
+The current repository is an architectural scaffold. The product specification is in [SPEC.md](./SPEC.md), the current implementation snapshot is in [STATUS.md](./STATUS.md), provider findings are in [docs/providers.md](./docs/providers.md), and the main architectural decisions are under [docs/architecture](./docs/architecture).
 
 ## Local development
 
