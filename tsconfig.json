@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "jsx": "react-jsx",
+    "types": ["node", "vite/client"],
+    "skipLibCheck": true,
+    "paths": {
+      "@throne/shared-types": ["./packages/shared-types/src/index.ts"],
+      "@throne/sim-core": ["./packages/sim-core/src/index.ts"],
+      "@throne/agent-runtime": ["./packages/agent-runtime/src/index.ts"],
+      "@throne/scenario-mvp": ["./packages/scenario-mvp/src/index.ts"]
+    }
+  },
+  "include": [
+    "apps/**/*.ts",
+    "apps/**/*.tsx",
+    "packages/**/*.ts",
+    "vite.config.ts"
+  ]
+}
