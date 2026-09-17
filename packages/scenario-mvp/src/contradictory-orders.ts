@@ -122,7 +122,11 @@ export type ContradictoryOrdersState = {
 
 export type ContradictoryOrdersActorView = {
   readonly actor: ScenarioActor;
-  readonly issuedOrders: readonly MilitaryOrder[];
+  readonly issuedOrders: readonly {
+    readonly id: string;
+    readonly objective: MilitaryOrder["objective"];
+    readonly targetLocationId: string;
+  }[];
   readonly observations: readonly Observation[];
   readonly knownOutcome:
     "awaiting_response" | "order_followed" | "order_overruled";
@@ -791,9 +795,13 @@ export function contradictoryOrdersActorView(
 ): ContradictoryOrdersActorView {
   const actor = state.actors[actorId];
   if (!actor) throw new Error(`Unknown actor: ${actorId}`);
-  const issuedOrders = Object.values(state.orders).filter(
-    (order) => order.issuerId === actorId,
-  );
+  const issuedOrders = Object.values(state.orders)
+    .filter((order) => order.issuerId === actorId)
+    .map((order) => ({
+      id: order.id,
+      objective: order.objective,
+      targetLocationId: order.targetLocationId,
+    }));
   const observations = (state.actorObservationIds[actorId] ?? []).map(
     (observationId) => {
       const observation = state.observations[observationId];

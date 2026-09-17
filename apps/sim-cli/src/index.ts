@@ -1,6 +1,6 @@
-import { runPartialImplementationScenario } from "@throne/scenario-mvp";
+import { runContradictoryOrdersScenario } from "@throne/scenario-mvp";
 
-const run = await runPartialImplementationScenario();
+const run = await runContradictoryOrdersScenario();
 
 for (const record of run.records) {
   if (record.kind === "committed") {
@@ -10,9 +10,9 @@ for (const record of run.records) {
   }
 }
 
-console.log("\nRuler view before the audit:");
-console.log(JSON.stringify(run.rulerViewBeforeAudit, null, 2));
-console.log("\nRuler view after the audit:");
-console.log(JSON.stringify(run.rulerViewAfterAudit, null, 2));
+console.log("\nRuler view before the commander's response:");
+console.log(JSON.stringify(run.rulerViewBeforeResponse, null, 2));
+console.log("\nRuler view after the commander's response:");
+console.log(JSON.stringify(run.rulerViewAfterResponse, null, 2));
 console.log("\nDebug truth:");
 console.log(JSON.stringify(run.debugTruth, null, 2));

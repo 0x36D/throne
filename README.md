@@ -15,7 +15,7 @@ pnpm demo
 pnpm dev
 ```
 
-`pnpm demo` runs the partial-implementation scenario through the event kernel. `pnpm dev` starts the local web shell with ruler knowledge before and after an audit, plus a separate administrator view of objective truth.
+`pnpm demo` runs the contradictory-orders scenario through the event kernel. `pnpm dev` starts the local web shell, where the partial-implementation and contradictory-orders demonstrations can be inspected from ruler and administrator perspectives.
 
 ## Runtime shape
 

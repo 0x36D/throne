@@ -1,6 +1,10 @@
 import {
+  contradictoryOrdersIds,
   partialImplementationIds,
+  runContradictoryOrdersScenario,
   runPartialImplementationScenario,
+  type ContradictoryOrdersActorView,
+  type ContradictoryOrdersRun,
   type PartialImplementationActorView,
   type PartialImplementationRun,
 } from "@throne/scenario-mvp";
@@ -8,10 +12,12 @@ import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
+type ScenarioKey = "conflict" | "partial";
+
 const modes = [
   {
     name: "Play",
-    status: "Second vertical slice",
+    status: "Third vertical slice",
     description:
       "The player rules through orders and reports, never through direct access to objective state.",
   },
@@ -30,15 +36,28 @@ const modes = [
 ];
 
 function App() {
-  const [run, setRun] = useState<PartialImplementationRun>();
+  const [partialRun, setPartialRun] = useState<PartialImplementationRun>();
+  const [conflictRun, setConflictRun] = useState<ContradictoryOrdersRun>();
+  const [scenario, setScenario] = useState<ScenarioKey>("conflict");
   const [view, setView] = useState<"ruler" | "debug">("ruler");
   const [moment, setMoment] = useState<"before" | "after">("before");
 
   useEffect(() => {
-    void runPartialImplementationScenario("web-partial-implementation").then(
-      setRun,
-    );
+    void Promise.all([
+      runPartialImplementationScenario("web-partial-implementation"),
+      runContradictoryOrdersScenario("web-contradictory-orders"),
+    ]).then(([partial, conflict]) => {
+      setPartialRun(partial);
+      setConflictRun(conflict);
+    });
   }, []);
+
+  const chooseScenario = (next: ScenarioKey) => {
+    setScenario(next);
+    setMoment("before");
+    setView("ruler");
+  };
+  const conflict = scenario === "conflict";
 
   return (
     <main>
@@ -51,11 +70,30 @@ function App() {
         </p>
       </header>
 
+      <nav className="scenario-picker" aria-label="Vertical slice">
+        <button
+          className={conflict ? "active" : ""}
+          onClick={() => chooseScenario("conflict")}
+        >
+          <span>Demo C</span>
+          Conflicting orders
+        </button>
+        <button
+          className={!conflict ? "active" : ""}
+          onClick={() => chooseScenario("partial")}
+        >
+          <span>Demo B</span>
+          Partial implementation
+        </button>
+      </nav>
+
       <section className={`scenario ${view === "debug" ? "debug" : ""}`}>
         <div className="section-heading scenario-heading">
           <div>
             <p className="eyebrow">LIVE VERTICAL SLICE</p>
-            <h2>Partial implementation</h2>
+            <h2>
+              {conflict ? "Conflicting orders" : "Partial implementation"}
+            </h2>
           </div>
           <div className="scenario-controls">
             <div className="view-switch" aria-label="Moment in the scenario">
@@ -63,13 +101,13 @@ function App() {
                 className={moment === "before" ? "active" : ""}
                 onClick={() => setMoment("before")}
               >
-                Before audit
+                {conflict ? "Before response" : "Before audit"}
               </button>
               <button
                 className={moment === "after" ? "active" : ""}
                 onClick={() => setMoment("after")}
               >
-                After audit
+                {conflict ? "After response" : "After audit"}
               </button>
             </div>
             <div className="view-switch" aria-label="Simulation perspective">
@@ -89,18 +127,30 @@ function App() {
           </div>
         </div>
 
-        {!run ? (
+        {!partialRun || !conflictRun ? (
           <p className="loading">Running scenario…</p>
+        ) : conflict ? (
+          view === "ruler" ? (
+            <ConflictRulerView
+              view={
+                moment === "before"
+                  ? conflictRun.rulerViewBeforeResponse
+                  : conflictRun.rulerViewAfterResponse
+              }
+            />
+          ) : (
+            <ConflictDebugView run={conflictRun} moment={moment} />
+          )
         ) : view === "ruler" ? (
-          <RulerView
+          <PartialRulerView
             view={
               moment === "before"
-                ? run.rulerViewBeforeAudit
-                : run.rulerViewAfterAudit
+                ? partialRun.rulerViewBeforeAudit
+                : partialRun.rulerViewAfterAudit
             }
           />
         ) : (
-          <DebugView run={run} moment={moment} />
+          <PartialDebugView run={partialRun} moment={moment} />
         )}
       </section>
 
@@ -125,20 +175,160 @@ function App() {
       <section className="boundary" aria-labelledby="boundary-heading">
         <div>
           <p className="eyebrow">CURRENT BOUNDARY</p>
-          <h2 id="boundary-heading">An order is not an effect.</h2>
+          <h2 id="boundary-heading">
+            {conflict
+              ? "Authority is relational."
+              : "An order is not an effect."}
+          </h2>
         </div>
-        <ol>
-          <li>Order travels through the world</li>
-          <li>Subordinate acknowledges it</li>
-          <li>Capacity limits actual implementation</li>
-          <li>A report may conceal the result</li>
-        </ol>
+        {conflict ? (
+          <ol>
+            <li>Messages arrive in simulation time</li>
+            <li>Simultaneous orders enter one decision</li>
+            <li>Relationships and beliefs shape intent</li>
+            <li>The operation changes the world</li>
+          </ol>
+        ) : (
+          <ol>
+            <li>Order travels through the world</li>
+            <li>Subordinate acknowledges it</li>
+            <li>Capacity limits actual implementation</li>
+            <li>A report may conceal the result</li>
+          </ol>
+        )}
       </section>
     </main>
   );
 }
 
-function RulerView({ view }: { view: PartialImplementationActorView }) {
+function ConflictRulerView({ view }: { view: ContradictoryOrdersActorView }) {
+  const order = view.issuedOrders[0];
+  const overruled = view.knownOutcome === "order_overruled";
+  return (
+    <div className="order-layout conflict-layout">
+      <div className="command-panel">
+        <p className="panel-label">Royal command</p>
+        <h3>Hold the Imperial Palace</h3>
+        <p className="command-copy">
+          Commander Zhao is ordered to move the Palace Guard from its barracks
+          and secure the sovereign's residence.
+        </p>
+        <div className="status-banner conflict-status">
+          <span>Known outcome</span>
+          <strong className={overruled ? "danger-text" : "pending-text"}>
+            {humanize(view.knownOutcome)}
+          </strong>
+        </div>
+        <p className="fog-note">
+          {overruled
+            ? "The commander's reply discloses a competing command from Chancellor Wei. The ruler still cannot see the commander's private deliberation."
+            : "The order is in the world. Silence does not reveal whether it is delayed, intercepted, obeyed, or contested."}
+        </p>
+        <p className="order-reference">{order?.id}</p>
+      </div>
+
+      <div className="document-panel">
+        <p className="panel-label">Messages received</p>
+        {view.observations.length === 0 ? (
+          <div className="silence-card">
+            <span>NO REPLY</span>
+            <h3>The court waits.</h3>
+            <p>
+              Nothing in the ruler's current information confirms that the
+              Palace Guard even received the order.
+            </p>
+          </div>
+        ) : (
+          <div className="document-list">
+            {view.observations.map((observation) => (
+              <article className="document refusal" key={observation.id}>
+                <div className="card-topline">
+                  <span>t = {observation.observedAt}</span>
+                  <span>Commander Zhao</span>
+                </div>
+                <h3>Palace order not followed</h3>
+                <p>
+                  The Palace Guard has moved to secure the capital granary under
+                  Chancellor Wei's competing instruction.
+                </p>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConflictDebugView({
+  run,
+  moment,
+}: {
+  run: ContradictoryOrdersRun;
+  moment: "before" | "after";
+}) {
+  const episode =
+    run.debugTruth.decisionEpisodes[contradictoryOrdersIds.decision];
+  const unit = run.debugTruth.units[contradictoryOrdersIds.unit];
+  const evaluations = episode?.evaluations ?? [];
+  return (
+    <div className="debug-panel conflict-debug">
+      <p className="debug-banner">
+        ADMINISTRATOR VIEW — COMMANDER DELIBERATION EXPOSED
+      </p>
+      <div className="decision-summary">
+        <div>
+          <p className="panel-label">Orders received together</p>
+          <div className="truth-number">2</div>
+          <p>
+            Both messages arrived at t=120 and triggered one decision episode.
+          </p>
+        </div>
+        <div className="selected-action">
+          <span>Selected operation</span>
+          <strong>Secure the capital granary</strong>
+          <span>Objective unit location</span>
+          <strong>
+            {humanize(unit?.locationId.split(":")[1] ?? "unknown")}
+          </strong>
+        </div>
+      </div>
+      <div className="score-grid">
+        {evaluations.map((evaluation, index) => {
+          const chancellor =
+            evaluation.orderId === contradictoryOrdersIds.chancellorOrder;
+          return (
+            <article
+              className={`score-card ${index === 0 ? "selected" : ""}`}
+              key={evaluation.orderId}
+            >
+              <div className="card-topline">
+                <span>{chancellor ? "Chancellor Wei" : "The Ruler"}</span>
+                <strong>{evaluation.total.toFixed(3)}</strong>
+              </div>
+              <h3>{chancellor ? "Secure granary" : "Hold palace"}</h3>
+              <div className="factor-list">
+                {evaluation.factors.map((factor) => (
+                  <div key={`${evaluation.orderId}:${factor.kind}`}>
+                    <span>{factor.label}</span>
+                    <strong>{factor.score.toFixed(3)}</strong>
+                  </div>
+                ))}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      <p className="debug-caption">
+        {moment === "before"
+          ? "The ruler is still waiting, but the commander has already received both commands. Debug truth may reveal facts unavailable to the player."
+          : "Formal sovereignty remained with the ruler. Funding, appointment influence, threat beliefs, and practical access produced a different act of obedience."}
+      </p>
+    </div>
+  );
+}
+
+function PartialRulerView({ view }: { view: PartialImplementationActorView }) {
   const completed = view.order.reportedFulfilledAmount ?? 0;
   const verified = view.order.verifiedFulfilledAmount;
   return (
@@ -209,7 +399,7 @@ function RulerView({ view }: { view: PartialImplementationActorView }) {
   );
 }
 
-function DebugView({
+function PartialDebugView({
   run,
   moment,
 }: {

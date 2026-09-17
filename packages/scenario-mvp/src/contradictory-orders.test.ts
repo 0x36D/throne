@@ -83,6 +83,8 @@ describe("contradictory orders scenario", () => {
     expect(run.rulerViewBeforeResponse.knownOutcome).toBe("awaiting_response");
     expect(before).not.toContain(contradictoryOrdersIds.chancellorOrder);
     expect(before).not.toContain(contradictoryOrdersIds.granary);
+    expect(before).not.toContain('"status":"received"');
+    expect(before).not.toContain("lifecycle");
     expect(run.rulerViewAfterResponse.knownOutcome).toBe("order_overruled");
     expect(run.rulerViewAfterResponse.disclosedAlternativeOrderId).toBe(
       contradictoryOrdersIds.chancellorOrder,
