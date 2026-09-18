@@ -1,16 +1,19 @@
 import {
   contradictoryOrdersIds,
   decisionRevisionIds,
+  dynamicPromotionIds,
   lossOfControlIds,
   partialImplementationIds,
   runContradictoryOrdersScenario,
   runDecisionRevisionScenario,
+  runDynamicPromotionScenario,
   runLossOfControlScenario,
   runPartialImplementationScenario,
   type ContradictoryOrdersActorView,
   type ContradictoryOrdersRun,
   type DecisionRevisionActorView,
   type DecisionRevisionRun,
+  type DynamicPromotionRun,
   type LossOfControlActorView,
   type LossOfControlRun,
   type PartialImplementationActorView,
@@ -35,7 +38,8 @@ import {
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
-type ScenarioKey = "control" | "revision" | "conflict" | "partial";
+type ScenarioKey =
+  "promotion" | "control" | "revision" | "conflict" | "partial";
 
 const modes = ["play", "observe", "batch"] as const;
 const localeStorageKey = "throne.locale";
@@ -55,7 +59,8 @@ function App() {
   const [conflictRun, setConflictRun] = useState<ContradictoryOrdersRun>();
   const [revisionRun, setRevisionRun] = useState<DecisionRevisionRun>();
   const [controlRun, setControlRun] = useState<LossOfControlRun>();
-  const [scenario, setScenario] = useState<ScenarioKey>("control");
+  const [promotionRun, setPromotionRun] = useState<DynamicPromotionRun>();
+  const [scenario, setScenario] = useState<ScenarioKey>("promotion");
   const [view, setView] = useState<"ruler" | "debug">("ruler");
   const [moment, setMoment] = useState<"before" | "after">("before");
 
@@ -65,11 +70,16 @@ function App() {
       runContradictoryOrdersScenario("web-contradictory-orders"),
       runDecisionRevisionScenario("web-decision-revision"),
       runLossOfControlScenario("web-loss-of-control"),
-    ]).then(([partial, conflict, revision, control]) => {
+      runDynamicPromotionScenario({
+        runId: "web-dynamic-promotion",
+        outputLanguage: locale,
+      }),
+    ]).then(([partial, conflict, revision, control, promotion]) => {
       setPartialRun(partial);
       setConflictRun(conflict);
       setRevisionRun(revision);
       setControlRun(control);
+      setPromotionRun(promotion);
     });
   }, []);
 
@@ -83,23 +93,28 @@ function App() {
     setMoment("before");
     setView("ruler");
   };
+  const promotion = scenario === "promotion";
   const control = scenario === "control";
   const revision = scenario === "revision";
   const conflict = scenario === "conflict";
-  const scenarioTitle = control
-    ? t("scenario.control.title")
-    : revision
-      ? t("scenario.revision.short")
-      : conflict
-        ? t("scenario.conflict.short")
-        : t("scenario.partial.short");
-  const momentLabels = control
-    ? [t("scenario.control.before"), t("scenario.control.after")]
-    : revision
-      ? [t("scenario.revision.before"), t("scenario.revision.after")]
-      : conflict
-        ? [t("scenario.conflict.before"), t("scenario.conflict.after")]
-        : [t("scenario.partial.before"), t("scenario.partial.after")];
+  const scenarioTitle = promotion
+    ? t("scenario.promotion.title")
+    : control
+      ? t("scenario.control.title")
+      : revision
+        ? t("scenario.revision.short")
+        : conflict
+          ? t("scenario.conflict.short")
+          : t("scenario.partial.short");
+  const momentLabels = promotion
+    ? [t("scenario.promotion.before"), t("scenario.promotion.after")]
+    : control
+      ? [t("scenario.control.before"), t("scenario.control.after")]
+      : revision
+        ? [t("scenario.revision.before"), t("scenario.revision.after")]
+        : conflict
+          ? [t("scenario.conflict.before"), t("scenario.conflict.after")]
+          : [t("scenario.partial.before"), t("scenario.partial.after")];
 
   return (
     <I18nContext.Provider value={t}>
@@ -126,7 +141,14 @@ function App() {
           <p className="lede">{t("app.lede")}</p>
         </header>
 
-        <nav className="scenario-picker" aria-label="Vertical slice">
+        <nav className="scenario-picker" aria-label={t("app.scenarioPicker")}>
+          <button
+            className={promotion ? "active" : ""}
+            onClick={() => chooseScenario("promotion")}
+          >
+            <span>Demo F</span>
+            {t("scenario.promotion.short")}
+          </button>
           <button
             className={control ? "active" : ""}
             onClick={() => chooseScenario("control")}
@@ -149,7 +171,9 @@ function App() {
             {t("scenario.conflict.short")}
           </button>
           <button
-            className={!control && !revision && !conflict ? "active" : ""}
+            className={
+              !promotion && !control && !revision && !conflict ? "active" : ""
+            }
             onClick={() => chooseScenario("partial")}
           >
             <span>Demo B</span>
@@ -164,7 +188,7 @@ function App() {
               <h2>{scenarioTitle}</h2>
             </div>
             <div className="scenario-controls">
-              <div className="view-switch" aria-label="Moment in the scenario">
+              <div className="view-switch" aria-label={t("app.momentPicker")}>
                 <button
                   className={moment === "before" ? "active" : ""}
                   onClick={() => setMoment("before")}
@@ -178,7 +202,10 @@ function App() {
                   {momentLabels[1]}
                 </button>
               </div>
-              <div className="view-switch" aria-label="Simulation perspective">
+              <div
+                className="view-switch"
+                aria-label={t("app.perspectivePicker")}
+              >
                 <button
                   className={view === "ruler" ? "active" : ""}
                   onClick={() => setView("ruler")}
@@ -195,8 +222,24 @@ function App() {
             </div>
           </div>
 
-          {!partialRun || !conflictRun || !revisionRun || !controlRun ? (
+          {!partialRun ||
+          !conflictRun ||
+          !revisionRun ||
+          !controlRun ||
+          !promotionRun ? (
             <p className="loading">{t("app.loading")}</p>
+          ) : promotion ? (
+            view === "ruler" ? (
+              <PromotionRulerView
+                view={
+                  moment === "before"
+                    ? promotionRun.rulerViewBeforeDecision
+                    : promotionRun.rulerViewFinal
+                }
+              />
+            ) : (
+              <PromotionDebugView run={promotionRun} moment={moment} />
+            )
           ) : control ? (
             view === "ruler" ? (
               <ControlRulerView
@@ -268,16 +311,25 @@ function App() {
           <div>
             <p className="eyebrow">{t("app.currentBoundary")}</p>
             <h2 id="boundary-heading">
-              {control
-                ? t("boundary.control.title")
-                : revision
-                  ? t("boundary.revision.title")
-                  : conflict
-                    ? t("boundary.conflict.title")
-                    : t("boundary.partial.title")}
+              {promotion
+                ? t("boundary.promotion.title")
+                : control
+                  ? t("boundary.control.title")
+                  : revision
+                    ? t("boundary.revision.title")
+                    : conflict
+                      ? t("boundary.conflict.title")
+                      : t("boundary.partial.title")}
             </h2>
           </div>
-          {control ? (
+          {promotion ? (
+            <ol>
+              <li>{t("boundary.promotion.1")}</li>
+              <li>{t("boundary.promotion.2")}</li>
+              <li>{t("boundary.promotion.3")}</li>
+              <li>{t("boundary.promotion.4")}</li>
+            </ol>
+          ) : control ? (
             <ol>
               <li>{t("boundary.control.1")}</li>
               <li>{t("boundary.control.2")}</li>
@@ -309,6 +361,150 @@ function App() {
         </section>
       </main>
     </I18nContext.Provider>
+  );
+}
+
+function PromotionRulerView({
+  view,
+}: {
+  view: DynamicPromotionRun["rulerViewFinal"];
+}) {
+  const t = useT();
+  const received = view.knownOutcome === "sealed_evidence_received";
+  return (
+    <div className="promotion-player-layout">
+      <div className="command-panel">
+        <p className="panel-label">{t("promotion.playerTitle")}</p>
+        <h3>
+          {received ? t("promotion.reportReceived") : t("promotion.noReport")}
+        </h3>
+        <p className="command-copy">
+          {received
+            ? t("promotion.reportReceivedCopy")
+            : t("promotion.noReportCopy")}
+        </p>
+        <div className="status-banner conflict-status">
+          <span>{t("promotion.knownOutcome")}</span>
+          <strong className={received ? "success-text" : "pending-text"}>
+            {tokenLabel(view.knownOutcome, t)}
+          </strong>
+        </div>
+        <p className="fog-note">
+          {received ? t("promotion.rulerFog") : t("promotion.waitingCopy")}
+        </p>
+      </div>
+      <div className="document-panel">
+        <p className="panel-label">{t("promotion.documents")}</p>
+        {received ? (
+          <article className="document urgent-document">
+            <div className="card-topline">
+              <span>
+                {t("common.time", {
+                  time: view.observations[0]?.observedAt ?? "?",
+                })}
+              </span>
+              <span>{t("common.clerkShen")}</span>
+            </div>
+            <h3>{t("promotion.evidenceTitle")}</h3>
+            <p>{t("promotion.evidenceCopy")}</p>
+          </article>
+        ) : (
+          <div className="silence-card">
+            <span>{t("promotion.noReport")}</span>
+            <h3>{t("promotion.waiting")}</h3>
+            <p>{t("promotion.waitingCopy")}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PromotionDebugView({
+  run,
+  moment,
+}: {
+  run: DynamicPromotionRun;
+  moment: "before" | "after";
+}) {
+  const t = useT();
+  const snapshot =
+    moment === "before" ? run.actorBeforePromotion : run.actorAfterPromotion;
+  const promoted = moment === "after";
+  return (
+    <div className="debug-panel promotion-debug">
+      <p className="debug-banner">{t("promotion.debugBanner")}</p>
+      <div className="promotion-profile">
+        <div className="promotion-identity">
+          <p className="panel-label">{t("promotion.identity")}</p>
+          <h3>{t("common.clerkShen")}</h3>
+          <code>{snapshot.actorId}</code>
+        </div>
+        <div className="cognition-shift">
+          <span>{t("promotion.cognition")}</span>
+          <strong>{tokenLabel(snapshot.cognition.tier, t)}</strong>
+          <small>{snapshot.cognition.policyId}</small>
+        </div>
+      </div>
+
+      <div className="continuity-grid">
+        <article>
+          <span>{t("promotion.office")}</span>
+          <strong>{snapshot.officeHistory.length}</strong>
+          <small>{dynamicPromotionIds.clerkOffice}</small>
+        </article>
+        <article>
+          <span>{t("promotion.memories")}</span>
+          <strong>{snapshot.memoryIds.length}</strong>
+          <small>{snapshot.memoryIds.join(" · ")}</small>
+        </article>
+        <article>
+          <span>{t("promotion.policy")}</span>
+          <strong>{promoted ? "Tier 2" : "Tier 1"}</strong>
+          <small>{snapshot.cognition.policyId}</small>
+        </article>
+      </div>
+
+      {promoted ? (
+        <div className="promotion-after-grid">
+          <div>
+            <p className="panel-label">{t("promotion.signalTitle")}</p>
+            <div className="promotion-signals">
+              {run.debugTruth.promotionSignals.map((signal) => (
+                <article key={signal.id}>
+                  <span>{signal.strength.toFixed(2)}</span>
+                  <h3>
+                    {signal.kind === "critical_information"
+                      ? t("promotion.signal.critical_information")
+                      : t("promotion.signal.high_potential_impact")}
+                  </h3>
+                  <code>{signal.id}</code>
+                </article>
+              ))}
+            </div>
+          </div>
+          <div className="recorded-decision">
+            <p className="panel-label">{t("promotion.decisionTitle")}</p>
+            <span>{t("promotion.capability")}</span>
+            <strong>
+              {tokenLabel(
+                run.debugTruth.decisionEpisode.selectedCapabilityId ??
+                  "unknown",
+                t,
+              )}
+            </strong>
+            <span>{t("promotion.confidence")}</span>
+            <strong>
+              {run.debugTruth.decisionOutput.confidence?.toFixed(2) ?? "—"}
+            </strong>
+          </div>
+        </div>
+      ) : null}
+
+      <p className="debug-caption">
+        {promoted ? t("promotion.afterCaption") : t("promotion.beforeCaption")}
+      </p>
+    </div>
   );
 }
 
@@ -652,7 +848,7 @@ function RevisionDebugView({
           <h3>{t("revision.moveEastShort")}</h3>
           <p>{t("revision.originalTravel")}</p>
         </article>
-        <div className="overtake-mark" aria-label="overtaken by">
+        <div className="overtake-mark" aria-label={t("revision.overtaken")}>
           {t("revision.overtaken")}
         </div>
         <article className="courier-card winner">

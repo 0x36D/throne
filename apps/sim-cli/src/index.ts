@@ -1,4 +1,4 @@
-import { runLossOfControlScenario } from "@throne/scenario-mvp";
+import { runDynamicPromotionScenario } from "@throne/scenario-mvp";
 import {
   createTranslator,
   defaultLocale,
@@ -9,7 +9,7 @@ const requestedLocale = process.env.THRONE_LOCALE;
 const locale = isLocale(requestedLocale) ? requestedLocale : defaultLocale;
 const t = createTranslator(locale);
 
-const run = await runLossOfControlScenario();
+const run = await runDynamicPromotionScenario({ outputLanguage: locale });
 
 for (const record of run.records) {
   if (record.kind === "committed") {
@@ -19,13 +19,11 @@ for (const record of run.records) {
   }
 }
 
-console.log(`\n${t("cli.rulerFirst")}`);
-console.log(JSON.stringify(run.rulerViewAfterFirstDecision, null, 2));
-console.log(`\n${t("cli.rulerFinal")}`);
+console.log(`\n${t("cli.promotionBefore")}`);
+console.log(JSON.stringify(run.actorBeforePromotion, null, 2));
+console.log(`\n${t("cli.promotionAfter")}`);
+console.log(JSON.stringify(run.actorAfterPromotion, null, 2));
+console.log(`\n${t("cli.promotionRuler")}`);
 console.log(JSON.stringify(run.rulerViewFinal, null, 2));
-console.log(`\n${t("cli.controlFirst")}`);
-console.log(JSON.stringify(run.controlAfterFirstDecision, null, 2));
-console.log(`\n${t("cli.controlFinal")}`);
-console.log(JSON.stringify(run.controlFinal, null, 2));
 console.log(`\n${t("cli.debugTruth")}`);
 console.log(JSON.stringify(run.debugTruth, null, 2));

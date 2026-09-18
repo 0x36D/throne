@@ -1025,6 +1025,137 @@ article p {
   border-bottom: 1px solid #393a31;
 }
 
+.promotion-player-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 42px;
+  padding-top: 30px;
+}
+
+.promotion-profile {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 30px;
+  padding: 26px;
+  border: 1px solid #55372f;
+  background: #211a17;
+}
+
+.promotion-identity h3 {
+  margin: 0 0 14px;
+  font:
+    400 clamp(2.4rem, 6vw, 4.6rem) / 0.95 Georgia,
+    "Times New Roman",
+    serif;
+}
+
+.promotion-identity code,
+.cognition-shift small,
+.continuity-grid small,
+.promotion-signals code {
+  color: #777369;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  overflow-wrap: anywhere;
+}
+
+.cognition-shift {
+  min-width: 190px;
+  padding: 18px;
+  border-left: 1px solid #55372f;
+}
+
+.cognition-shift span,
+.continuity-grid span,
+.recorded-decision span {
+  display: block;
+  color: #9f927f;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.cognition-shift strong {
+  display: block;
+  margin: 24px 0 12px;
+  color: #d28a74;
+  font:
+    400 2.4rem/1 Georgia,
+    "Times New Roman",
+    serif;
+}
+
+.continuity-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin-top: 1px;
+  background: #55372f;
+}
+
+.continuity-grid article {
+  min-height: 0;
+  padding: 20px;
+  background: #251b17;
+}
+
+.continuity-grid strong {
+  display: block;
+  margin: 18px 0 12px;
+  font:
+    400 2.2rem/1 Georgia,
+    "Times New Roman",
+    serif;
+}
+
+.promotion-after-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 0.75fr;
+  gap: 38px;
+  margin-top: 42px;
+}
+
+.promotion-signals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.promotion-signals article {
+  min-height: 0;
+  padding: 20px;
+  border: 1px solid #55372f;
+  background: #251b17;
+}
+
+.promotion-signals article > span {
+  color: #d28a74;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.promotion-signals h3 {
+  margin: 24px 0 18px;
+  font-size: 1.65rem;
+}
+
+.recorded-decision {
+  padding: 24px;
+  border: 1px solid #6f5a3e;
+  background: #252219;
+}
+
+.recorded-decision strong {
+  display: block;
+  margin: 10px 0 28px;
+  color: #e8e3d3;
+  font:
+    400 1.7rem/1.05 Georgia,
+    "Times New Roman",
+    serif;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 760px) {
   main {
     padding-top: 54px;
@@ -1047,8 +1178,19 @@ article p {
   .control-decision-grid,
   .courier-race,
   .revision-truth-grid,
-  .revision-lifecycles {
+  .revision-lifecycles,
+  .promotion-player-layout,
+  .promotion-profile,
+  .continuity-grid,
+  .promotion-after-grid,
+  .promotion-signals {
     grid-template-columns: 1fr;
+  }
+
+  .cognition-shift {
+    min-width: 0;
+    border-top: 1px solid #55372f;
+    border-left: 0;
   }
 
   .overtake-mark {
