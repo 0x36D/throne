@@ -16,34 +16,41 @@ import {
   type PartialImplementationActorView,
   type PartialImplementationRun,
 } from "@throne/scenario-mvp";
-import { StrictMode, useEffect, useState } from "react";
+import {
+  createTranslator,
+  defaultLocale,
+  isLocale,
+  translateToken,
+  type Locale,
+  type Translator,
+} from "@throne/localization";
+import {
+  StrictMode,
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 type ScenarioKey = "control" | "revision" | "conflict" | "partial";
 
-const modes = [
-  {
-    name: "Play",
-    status: "Fifth vertical slice",
-    description:
-      "The player rules through orders and reports, never through direct access to objective state.",
-  },
-  {
-    name: "Observe",
-    status: "Designed",
-    description:
-      "Every persistent actor is autonomous; the completed run can be inspected.",
-  },
-  {
-    name: "Batch",
-    status: "Designed",
-    description:
-      "Run the same scenario repeatedly and compare distributions and causal traces.",
-  },
-];
+const modes = ["play", "observe", "batch"] as const;
+const localeStorageKey = "throne.locale";
+const I18nContext = createContext<Translator>(createTranslator(defaultLocale));
+
+function useT(): Translator {
+  return useContext(I18nContext);
+}
 
 function App() {
+  const [locale, setLocale] = useState<Locale>(() => {
+    const stored = window.localStorage.getItem(localeStorageKey);
+    return isLocale(stored) ? stored : defaultLocale;
+  });
+  const t = useMemo(() => createTranslator(locale), [locale]);
   const [partialRun, setPartialRun] = useState<PartialImplementationRun>();
   const [conflictRun, setConflictRun] = useState<ContradictoryOrdersRun>();
   const [revisionRun, setRevisionRun] = useState<DecisionRevisionRun>();
@@ -66,6 +73,11 @@ function App() {
     });
   }, []);
 
+  useEffect(() => {
+    window.localStorage.setItem(localeStorageKey, locale);
+    document.documentElement.lang = locale;
+  }, [locale]);
+
   const chooseScenario = (next: ScenarioKey) => {
     setScenario(next);
     setMoment("before");
@@ -75,227 +87,247 @@ function App() {
   const revision = scenario === "revision";
   const conflict = scenario === "conflict";
   const scenarioTitle = control
-    ? "Emergent loss of control"
+    ? t("scenario.control.title")
     : revision
-      ? "Decision revision"
+      ? t("scenario.revision.short")
       : conflict
-        ? "Conflicting orders"
-        : "Partial implementation";
+        ? t("scenario.conflict.short")
+        : t("scenario.partial.short");
   const momentLabels = control
-    ? ["Command obeyed", "Control lost"]
+    ? [t("scenario.control.before"), t("scenario.control.after")]
     : revision
-      ? ["First order", "After reversal"]
+      ? [t("scenario.revision.before"), t("scenario.revision.after")]
       : conflict
-        ? ["Before response", "After response"]
-        : ["Before audit", "After audit"];
+        ? [t("scenario.conflict.before"), t("scenario.conflict.after")]
+        : [t("scenario.partial.before"), t("scenario.partial.after")];
 
   return (
-    <main>
-      <header>
-        <p className="eyebrow">POLITICAL SIMULATION ENGINE</p>
-        <h1>Throne</h1>
-        <p className="lede">
-          Political order is not a state variable. It is the unstable result of
-          information, relationships, resources, and decisions made in time.
-        </p>
-      </header>
-
-      <nav className="scenario-picker" aria-label="Vertical slice">
-        <button
-          className={control ? "active" : ""}
-          onClick={() => chooseScenario("control")}
-        >
-          <span>Demo E</span>
-          Loss of control
-        </button>
-        <button
-          className={revision ? "active" : ""}
-          onClick={() => chooseScenario("revision")}
-        >
-          <span>Demo D</span>
-          Decision revision
-        </button>
-        <button
-          className={conflict ? "active" : ""}
-          onClick={() => chooseScenario("conflict")}
-        >
-          <span>Demo C</span>
-          Conflicting orders
-        </button>
-        <button
-          className={!control && !revision && !conflict ? "active" : ""}
-          onClick={() => chooseScenario("partial")}
-        >
-          <span>Demo B</span>
-          Partial implementation
-        </button>
-      </nav>
-
-      <section className={`scenario ${view === "debug" ? "debug" : ""}`}>
-        <div className="section-heading scenario-heading">
-          <div>
-            <p className="eyebrow">LIVE VERTICAL SLICE</p>
-            <h2>{scenarioTitle}</h2>
-          </div>
-          <div className="scenario-controls">
-            <div className="view-switch" aria-label="Moment in the scenario">
+    <I18nContext.Provider value={t}>
+      <main>
+        <header>
+          <div className="header-topline">
+            <p className="eyebrow">{t("app.eyebrow")}</p>
+            <div className="language-switch" aria-label={t("language.label")}>
               <button
-                className={moment === "before" ? "active" : ""}
-                onClick={() => setMoment("before")}
+                className={locale === "zh-CN" ? "active" : ""}
+                onClick={() => setLocale("zh-CN")}
               >
-                {momentLabels[0]}
+                {t("language.zh-CN")}
               </button>
               <button
-                className={moment === "after" ? "active" : ""}
-                onClick={() => setMoment("after")}
+                className={locale === "en" ? "active" : ""}
+                onClick={() => setLocale("en")}
               >
-                {momentLabels[1]}
-              </button>
-            </div>
-            <div className="view-switch" aria-label="Simulation perspective">
-              <button
-                className={view === "ruler" ? "active" : ""}
-                onClick={() => setView("ruler")}
-              >
-                Ruler view
-              </button>
-              <button
-                className={view === "debug" ? "active" : ""}
-                onClick={() => setView("debug")}
-              >
-                Debug truth
+                {t("language.en")}
               </button>
             </div>
           </div>
-        </div>
+          <h1>{t("app.title")}</h1>
+          <p className="lede">{t("app.lede")}</p>
+        </header>
 
-        {!partialRun || !conflictRun || !revisionRun || !controlRun ? (
-          <p className="loading">Running scenario…</p>
-        ) : control ? (
-          view === "ruler" ? (
-            <ControlRulerView
-              view={
-                moment === "before"
-                  ? controlRun.rulerViewAfterFirstDecision
-                  : controlRun.rulerViewFinal
-              }
-            />
-          ) : (
-            <ControlDebugView run={controlRun} moment={moment} />
-          )
-        ) : revision ? (
-          view === "ruler" ? (
-            <RevisionRulerView
-              view={
-                moment === "before"
-                  ? revisionRun.rulerViewAfterFirstOrder
-                  : revisionRun.rulerViewFinal
-              }
-            />
-          ) : (
-            <RevisionDebugView run={revisionRun} moment={moment} />
-          )
-        ) : conflict ? (
-          view === "ruler" ? (
-            <ConflictRulerView
-              view={
-                moment === "before"
-                  ? conflictRun.rulerViewBeforeResponse
-                  : conflictRun.rulerViewAfterResponse
-              }
-            />
-          ) : (
-            <ConflictDebugView run={conflictRun} moment={moment} />
-          )
-        ) : view === "ruler" ? (
-          <PartialRulerView
-            view={
-              moment === "before"
-                ? partialRun.rulerViewBeforeAudit
-                : partialRun.rulerViewAfterAudit
-            }
-          />
-        ) : (
-          <PartialDebugView run={partialRun} moment={moment} />
-        )}
-      </section>
+        <nav className="scenario-picker" aria-label="Vertical slice">
+          <button
+            className={control ? "active" : ""}
+            onClick={() => chooseScenario("control")}
+          >
+            <span>Demo E</span>
+            {t("scenario.control.short")}
+          </button>
+          <button
+            className={revision ? "active" : ""}
+            onClick={() => chooseScenario("revision")}
+          >
+            <span>Demo D</span>
+            {t("scenario.revision.short")}
+          </button>
+          <button
+            className={conflict ? "active" : ""}
+            onClick={() => chooseScenario("conflict")}
+          >
+            <span>Demo C</span>
+            {t("scenario.conflict.short")}
+          </button>
+          <button
+            className={!control && !revision && !conflict ? "active" : ""}
+            onClick={() => chooseScenario("partial")}
+          >
+            <span>Demo B</span>
+            {t("scenario.partial.short")}
+          </button>
+        </nav>
 
-      <section aria-labelledby="modes-heading">
-        <div className="section-heading">
-          <h2 id="modes-heading">Runtime modes</h2>
-          <span>Architecture scaffold</span>
-        </div>
-        <div className="mode-grid">
-          {modes.map((mode) => (
-            <article key={mode.name}>
-              <div className="card-topline">
-                <h3>{mode.name}</h3>
-                <span>{mode.status}</span>
+        <section className={`scenario ${view === "debug" ? "debug" : ""}`}>
+          <div className="section-heading scenario-heading">
+            <div>
+              <p className="eyebrow">{t("app.liveSlice")}</p>
+              <h2>{scenarioTitle}</h2>
+            </div>
+            <div className="scenario-controls">
+              <div className="view-switch" aria-label="Moment in the scenario">
+                <button
+                  className={moment === "before" ? "active" : ""}
+                  onClick={() => setMoment("before")}
+                >
+                  {momentLabels[0]}
+                </button>
+                <button
+                  className={moment === "after" ? "active" : ""}
+                  onClick={() => setMoment("after")}
+                >
+                  {momentLabels[1]}
+                </button>
               </div>
-              <p>{mode.description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+              <div className="view-switch" aria-label="Simulation perspective">
+                <button
+                  className={view === "ruler" ? "active" : ""}
+                  onClick={() => setView("ruler")}
+                >
+                  {t("app.rulerView")}
+                </button>
+                <button
+                  className={view === "debug" ? "active" : ""}
+                  onClick={() => setView("debug")}
+                >
+                  {t("app.debugView")}
+                </button>
+              </div>
+            </div>
+          </div>
 
-      <section className="boundary" aria-labelledby="boundary-heading">
-        <div>
-          <p className="eyebrow">CURRENT BOUNDARY</p>
-          <h2 id="boundary-heading">
-            {control
-              ? "Office and control are different facts."
-              : revision
-                ? "A new decision does not erase the old one."
-                : conflict
-                  ? "Authority is relational."
-                  : "An order is not an effect."}
-          </h2>
-        </div>
-        {control ? (
-          <ol>
-            <li>Formal sovereignty never changes</li>
-            <li>Material support changes a relationship</li>
-            <li>Repeated decisions create obedience history</li>
-            <li>Practical control is derived, never triggered</li>
-          </ol>
-        ) : revision ? (
-          <ol>
-            <li>New evidence reopens a committed decision</li>
-            <li>The revised order travels independently</li>
-            <li>A faster courier overtakes the first</li>
-            <li>Both intentions remain in history</li>
-          </ol>
-        ) : conflict ? (
-          <ol>
-            <li>Messages arrive in simulation time</li>
-            <li>Simultaneous orders enter one decision</li>
-            <li>Relationships and beliefs shape intent</li>
-            <li>The operation changes the world</li>
-          </ol>
-        ) : (
-          <ol>
-            <li>Order travels through the world</li>
-            <li>Subordinate acknowledges it</li>
-            <li>Capacity limits actual implementation</li>
-            <li>A report may conceal the result</li>
-          </ol>
-        )}
-      </section>
-    </main>
+          {!partialRun || !conflictRun || !revisionRun || !controlRun ? (
+            <p className="loading">{t("app.loading")}</p>
+          ) : control ? (
+            view === "ruler" ? (
+              <ControlRulerView
+                view={
+                  moment === "before"
+                    ? controlRun.rulerViewAfterFirstDecision
+                    : controlRun.rulerViewFinal
+                }
+              />
+            ) : (
+              <ControlDebugView run={controlRun} moment={moment} />
+            )
+          ) : revision ? (
+            view === "ruler" ? (
+              <RevisionRulerView
+                view={
+                  moment === "before"
+                    ? revisionRun.rulerViewAfterFirstOrder
+                    : revisionRun.rulerViewFinal
+                }
+              />
+            ) : (
+              <RevisionDebugView run={revisionRun} moment={moment} />
+            )
+          ) : conflict ? (
+            view === "ruler" ? (
+              <ConflictRulerView
+                view={
+                  moment === "before"
+                    ? conflictRun.rulerViewBeforeResponse
+                    : conflictRun.rulerViewAfterResponse
+                }
+              />
+            ) : (
+              <ConflictDebugView run={conflictRun} moment={moment} />
+            )
+          ) : view === "ruler" ? (
+            <PartialRulerView
+              view={
+                moment === "before"
+                  ? partialRun.rulerViewBeforeAudit
+                  : partialRun.rulerViewAfterAudit
+              }
+            />
+          ) : (
+            <PartialDebugView run={partialRun} moment={moment} />
+          )}
+        </section>
+
+        <section aria-labelledby="modes-heading">
+          <div className="section-heading">
+            <h2 id="modes-heading">{t("app.runtimeModes")}</h2>
+            <span>{t("app.scaffold")}</span>
+          </div>
+          <div className="mode-grid">
+            {modes.map((mode) => (
+              <article key={mode}>
+                <div className="card-topline">
+                  <h3>{t(`mode.${mode}.name`)}</h3>
+                  <span>{t(`mode.${mode}.status`)}</span>
+                </div>
+                <p>{t(`mode.${mode}.description`)}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="boundary" aria-labelledby="boundary-heading">
+          <div>
+            <p className="eyebrow">{t("app.currentBoundary")}</p>
+            <h2 id="boundary-heading">
+              {control
+                ? t("boundary.control.title")
+                : revision
+                  ? t("boundary.revision.title")
+                  : conflict
+                    ? t("boundary.conflict.title")
+                    : t("boundary.partial.title")}
+            </h2>
+          </div>
+          {control ? (
+            <ol>
+              <li>{t("boundary.control.1")}</li>
+              <li>{t("boundary.control.2")}</li>
+              <li>{t("boundary.control.3")}</li>
+              <li>{t("boundary.control.4")}</li>
+            </ol>
+          ) : revision ? (
+            <ol>
+              <li>{t("boundary.revision.1")}</li>
+              <li>{t("boundary.revision.2")}</li>
+              <li>{t("boundary.revision.3")}</li>
+              <li>{t("boundary.revision.4")}</li>
+            </ol>
+          ) : conflict ? (
+            <ol>
+              <li>{t("boundary.conflict.1")}</li>
+              <li>{t("boundary.conflict.2")}</li>
+              <li>{t("boundary.conflict.3")}</li>
+              <li>{t("boundary.conflict.4")}</li>
+            </ol>
+          ) : (
+            <ol>
+              <li>{t("boundary.partial.1")}</li>
+              <li>{t("boundary.partial.2")}</li>
+              <li>{t("boundary.partial.3")}</li>
+              <li>{t("boundary.partial.4")}</li>
+            </ol>
+          )}
+        </section>
+      </main>
+    </I18nContext.Provider>
   );
 }
 
 function ControlRulerView({ view }: { view: LossOfControlActorView }) {
+  const t = useT();
   const overruled = view.knownOutcome === "later_command_overruled";
   return (
     <div className="control-layout">
       <div className="control-command-panel">
         <div className="formal-seal">
-          <span>Formal authority</span>
-          <strong>The Ruler</strong>
-          <small>{view.organization.name} remains legally subordinate.</small>
+          <span>{t("common.formalAuthority")}</span>
+          <strong>{t("common.ruler")}</strong>
+          <small>
+            {t("control.formalNote", {
+              organization: t("common.imperialGuard"),
+            })}
+          </small>
         </div>
-        <p className="panel-label">Royal orders</p>
+        <p className="panel-label">{t("control.royalOrders")}</p>
         <div className="control-orders">
           {view.issuedOrders.map((order) => (
             <article
@@ -303,35 +335,33 @@ function ControlRulerView({ view }: { view: LossOfControlActorView }) {
               key={order.id}
             >
               <div className="card-topline">
-                <span>Command {order.round}</span>
+                <span>{t("control.command", { round: order.round })}</span>
                 <span>
-                  {humanize(order.targetLocationId.split(":")[1] ?? "")}
+                  {tokenLabel(order.targetLocationId.split(":")[1] ?? "", t)}
                 </span>
               </div>
-              <h3>Hold the Imperial Palace</h3>
+              <h3>{t("control.holdPalace")}</h3>
               <p>
                 {order.round === 1
-                  ? "The guard confirms the command and remains at the palace."
-                  : "The same formal authority now produces a different response."}
+                  ? t("control.firstOrderCopy")
+                  : t("control.secondOrderCopy")}
               </p>
             </article>
           ))}
         </div>
         <div className="status-banner conflict-status">
-          <span>Known outcome</span>
+          <span>{t("common.knownOutcome")}</span>
           <strong className={overruled ? "danger-text" : "success-text"}>
-            {humanize(view.knownOutcome)}
+            {tokenLabel(view.knownOutcome, t)}
           </strong>
         </div>
         <p className="fog-note">
-          {overruled
-            ? "Commander Zhao reports following Chancellor Wei's competing instruction. The ruler can see disobedience, but not the private weights that produced it."
-            : "The first command was obeyed. Nothing in the formal record warns that another patron is becoming more important to the guard."}
+          {overruled ? t("control.playerAfter") : t("control.playerBefore")}
         </p>
       </div>
 
       <div className="document-panel">
-        <p className="panel-label">Commander reports</p>
+        <p className="panel-label">{t("control.reports")}</p>
         <div className="document-list">
           {view.observations.map((observation, index) => {
             const refused = index > 0;
@@ -341,16 +371,20 @@ function ControlRulerView({ view }: { view: LossOfControlActorView }) {
                 key={observation.id}
               >
                 <div className="card-topline">
-                  <span>t = {observation.observedAt}</span>
-                  <span>Commander Zhao</span>
+                  <span>
+                    {t("common.time", { time: observation.observedAt })}
+                  </span>
+                  <span>{t("common.commander")}</span>
                 </div>
                 <h3>
-                  {refused ? "Royal order not followed" : "Command obeyed"}
+                  {refused
+                    ? t("control.reportRefused")
+                    : t("control.reportObeyed")}
                 </h3>
                 <p>
                   {refused
-                    ? "The Imperial Guard moved to protect the Military Pay Office under the chancellor's instruction."
-                    : "The Imperial Guard remains at the palace in accordance with the royal command."}
+                    ? t("control.reportRefusedCopy")
+                    : t("control.reportObeyedCopy")}
                 </p>
               </article>
             );
@@ -368,6 +402,7 @@ function ControlDebugView({
   run: LossOfControlRun;
   moment: "before" | "after";
 }) {
+  const t = useT();
   const assessment =
     moment === "before" ? run.controlAfterFirstDecision : run.controlFinal;
   const episodeId =
@@ -383,51 +418,51 @@ function ControlDebugView({
   });
   const leaderName =
     assessment.leadingActorId === lossOfControlIds.ruler
-      ? "The Ruler"
-      : "Chancellor Wei";
+      ? t("common.ruler")
+      : t("common.chancellor");
 
   return (
     <div className="debug-panel control-debug">
-      <p className="debug-banner">
-        ADMINISTRATOR VIEW — FORMAL AND PRACTICAL POWER SEPARATED
-      </p>
+      <p className="debug-banner">{t("control.debugBanner")}</p>
       <div className="authority-comparison">
         <article>
-          <span>Formal authority</span>
-          <h3>The Ruler</h3>
-          <p>Unchanged in both rounds · sole recognized sovereign</p>
+          <span>{t("common.formalAuthority")}</span>
+          <h3>{t("common.ruler")}</h3>
+          <p>{t("control.formalDetail")}</p>
         </article>
         <div className="not-equal">≠</div>
         <article className={moment === "after" ? "shifted" : ""}>
-          <span>Derived practical lead</span>
+          <span>{t("control.practicalLead")}</span>
           <h3>{leaderName}</h3>
-          <p>Computed from current relationships and latest obedience</p>
+          <p>{t("control.practicalDetail")}</p>
         </article>
       </div>
 
       <div className="control-evidence-grid">
         <div>
-          <p className="panel-label">Control evidence</p>
+          <p className="panel-label">{t("control.evidence")}</p>
           <div className="candidate-control-list">
             {assessment.candidates.map((candidate) => (
               <div key={candidate.actorId}>
                 <span>
                   {candidate.actorId === lossOfControlIds.ruler
-                    ? "The Ruler"
-                    : "Chancellor Wei"}
+                    ? t("common.ruler")
+                    : t("common.chancellor")}
                 </span>
                 <strong>{candidate.score.toFixed(3)}</strong>
                 <small>
-                  relations {candidate.relationshipSupport.toFixed(3)} · latest{" "}
-                  {humanize(candidate.latestObedience)}
+                  {t("control.evidenceDetail", {
+                    score: candidate.relationshipSupport.toFixed(3),
+                    obedience: tokenLabel(candidate.latestObedience, t),
+                  })}
                 </small>
               </div>
             ))}
           </div>
         </div>
         <div className="payroll-card">
-          <p className="panel-label">Material dependency</p>
-          <span>Chancellor funding relationship</span>
+          <p className="panel-label">{t("control.materialDependency")}</p>
+          <span>{t("control.fundingRelationship")}</span>
           <strong>
             {moment === "before"
               ? funding?.history[0]?.strength.toFixed(2)
@@ -435,8 +470,8 @@ function ControlDebugView({
           </strong>
           <p>
             {moment === "before"
-              ? "The guard payroll still carries 100 in arrears."
-              : "At t=100 the chancellor paid all 100 in arrears from his reserve."}
+              ? t("control.payrollBefore")
+              : t("control.payrollAfter")}
           </p>
         </div>
       </div>
@@ -451,14 +486,16 @@ function ControlDebugView({
               key={evaluation.orderId}
             >
               <div className="card-topline">
-                <span>{chancellor ? "Chancellor Wei" : "The Ruler"}</span>
+                <span>
+                  {chancellor ? t("common.chancellor") : t("common.ruler")}
+                </span>
                 <strong>{evaluation.total.toFixed(3)}</strong>
               </div>
-              <h3>{selected ? "Selected" : "Rejected"}</h3>
+              <h3>{selected ? t("common.selected") : t("common.rejected")}</h3>
               <div className="factor-list">
                 {evaluation.factors.map((factor) => (
                   <div key={`${evaluation.orderId}:${factor.kind}`}>
-                    <span>{factor.label}</span>
+                    <span>{tokenLabel(factor.kind, t)}</span>
                     <strong>{factor.score.toFixed(3)}</strong>
                   </div>
                 ))}
@@ -469,35 +506,41 @@ function ControlDebugView({
       </div>
 
       <div className="obedience-history">
-        <p className="panel-label">Objective obedience history</p>
+        <p className="panel-label">{t("control.obedienceHistory")}</p>
         {visibleObedience.map((record) => (
           <span
             className={record.obeyed ? "obeyed" : "refused"}
             key={record.id}
           >
-            round {run.debugTruth.orders[record.orderId]?.round} ·{" "}
-            {record.issuerId === lossOfControlIds.ruler
-              ? "ruler"
-              : "chancellor"}{" "}
-            · {record.obeyed ? "obeyed" : "not obeyed"}
+            {t("control.obedienceEntry", {
+              round: run.debugTruth.orders[record.orderId]?.round ?? "?",
+              actor: tokenLabel(
+                record.issuerId === lossOfControlIds.ruler
+                  ? "ruler"
+                  : "chancellor",
+                t,
+              ),
+              outcome: tokenLabel(record.obeyed ? "obeyed" : "not_obeyed", t),
+            })}
           </span>
         ))}
       </div>
       <p className="debug-caption">
         {moment === "before"
-          ? "Formal command, legal recognition, personal loyalty, and the first act of obedience still make the ruler the practical leader."
-          : "No control flag changed. A concrete payment changed one relationship; the next decision and act of obedience changed the derived result."}
+          ? t("control.beforeCaption")
+          : t("control.afterCaption")}
       </p>
     </div>
   );
 }
 
 function RevisionRulerView({ view }: { view: DecisionRevisionActorView }) {
+  const t = useT();
   const confirmed = view.knownOutcome === "revision_confirmed";
   return (
     <div className="revision-layout">
       <div className="revision-command-panel">
-        <p className="panel-label">Decision record</p>
+        <p className="panel-label">{t("revision.record")}</p>
         <div className="revision-orders">
           {view.issuedOrders.map((order) => (
             <article
@@ -505,38 +548,38 @@ function RevisionRulerView({ view }: { view: DecisionRevisionActorView }) {
               key={order.id}
             >
               <div className="card-topline">
-                <span>Revision {order.revision}</span>
-                <span>t = {order.issuedAt}</span>
+                <span>
+                  {t("revision.number", { revision: order.revision })}
+                </span>
+                <span>{t("common.time", { time: order.issuedAt })}</span>
               </div>
               <h3>
                 {order.objective === "hold_imperial_palace"
-                  ? "Hold the Imperial Palace"
-                  : "Move to the East Gate"}
+                  ? t("revision.holdPalace")
+                  : t("revision.moveEast")}
               </h3>
               <p>
                 {order.revision > 0
-                  ? "New intelligence reverses the earlier deployment. A faster courier carries the countermand."
-                  : "The first report prompts an immediate deployment of the Palace Guard."}
+                  ? t("revision.secondCopy")
+                  : t("revision.firstCopy")}
               </p>
               <span className="order-reference">{order.id}</span>
             </article>
           ))}
         </div>
         <div className="status-banner conflict-status">
-          <span>Known outcome</span>
+          <span>{t("common.knownOutcome")}</span>
           <strong className={confirmed ? "success-text" : "pending-text"}>
-            {humanize(view.knownOutcome)}
+            {tokenLabel(view.knownOutcome, t)}
           </strong>
         </div>
         <p className="fog-note">
-          {confirmed
-            ? "The commander confirms that the later instruction took effect. The ruler learns the result only after both couriers have reached the guard."
-            : "Issuing a countermand does not retrieve the first messenger. The ruler cannot see which order will arrive first."}
+          {confirmed ? t("revision.playerAfter") : t("revision.playerBefore")}
         </p>
       </div>
 
       <div className="document-panel">
-        <p className="panel-label">Intelligence and replies</p>
+        <p className="panel-label">{t("revision.intelligence")}</p>
         <div className="document-list">
           {view.observations.map((observation) => {
             const correcting =
@@ -548,22 +591,24 @@ function RevisionRulerView({ view }: { view: DecisionRevisionActorView }) {
                 key={observation.id}
               >
                 <div className="card-topline">
-                  <span>t = {observation.observedAt}</span>
-                  <span>{humanize(observation.sourceType)}</span>
+                  <span>
+                    {t("common.time", { time: observation.observedAt })}
+                  </span>
+                  <span>{tokenLabel(observation.sourceType, t)}</span>
                 </div>
                 <h3>
                   {report
-                    ? "Countermand confirmed"
+                    ? t("revision.confirmed")
                     : correcting
-                      ? "The East Gate is a decoy"
-                      : "Armed movement at the East Gate"}
+                      ? t("revision.decoy")
+                      : t("revision.armedMovement")}
                 </h3>
                 <p>
                   {report
-                    ? "Commander Zhao reports that the Palace Guard held the palace and ignored the late-arriving original order."
+                    ? t("revision.confirmedCopy")
                     : correcting
-                      ? "Independent intelligence warns that conspirators are approaching the palace."
-                      : "A field report warns of armed movement outside the eastern gate."}
+                      ? t("revision.decoyCopy")
+                      : t("revision.armedMovementCopy")}
                 </p>
               </article>
             );
@@ -581,6 +626,7 @@ function RevisionDebugView({
   run: DecisionRevisionRun;
   moment: "before" | "after";
 }) {
+  const t = useT();
   const first = run.debugTruth.orders[decisionRevisionIds.firstOrder];
   const revised = run.debugTruth.orders[decisionRevisionIds.revisedOrder];
   const unit = run.debugTruth.units[decisionRevisionIds.unit];
@@ -594,53 +640,60 @@ function RevisionDebugView({
 
   return (
     <div className="debug-panel revision-debug">
-      <p className="debug-banner">ADMINISTRATOR VIEW — BOTH COURIERS EXPOSED</p>
+      <p className="debug-banner">{t("revision.debugBanner")}</p>
       <div className="courier-race">
         <article className="courier-card late">
           <div className="card-topline">
-            <span>Original order</span>
-            <strong>arrives t={firstArrival}</strong>
+            <span>{t("revision.original")}</span>
+            <strong>
+              {t("common.arrivesAt", { time: firstArrival ?? "?" })}
+            </strong>
           </div>
-          <h3>Move east</h3>
-          <p>Departed t=20 · travel time 100 · ignored as revision 0</p>
+          <h3>{t("revision.moveEastShort")}</h3>
+          <p>{t("revision.originalTravel")}</p>
         </article>
         <div className="overtake-mark" aria-label="overtaken by">
-          ← overtaken by
+          {t("revision.overtaken")}
         </div>
         <article className="courier-card winner">
           <div className="card-topline">
-            <span>Countermand</span>
-            <strong>arrives t={revisedArrival}</strong>
+            <span>{t("revision.countermand")}</span>
+            <strong>
+              {t("common.arrivesAt", { time: revisedArrival ?? "?" })}
+            </strong>
           </div>
-          <h3>Hold palace</h3>
-          <p>Departed t=50 · travel time 40 · executed as revision 1</p>
+          <h3>{t("revision.holdPalaceShort")}</h3>
+          <p>{t("revision.countermandTravel")}</p>
         </article>
       </div>
       <div className="revision-truth-grid">
         <div>
-          <p className="panel-label">Decision history</p>
+          <p className="panel-label">{t("revision.history")}</p>
           <div className="truth-number">
             {episode?.finalIntentIds.length ?? 0}
           </div>
-          <p>committed intentions retained in one decision episode</p>
+          <p>{t("revision.historyDetail")}</p>
         </div>
         <div className="selected-action">
-          <span>Effective order</span>
-          <strong>{humanize(unit?.acceptedOrderId ?? "unknown")}</strong>
-          <span>Objective unit location</span>
+          <span>{t("revision.effectiveOrder")}</span>
+          <strong>{tokenLabel(unit?.acceptedOrderId ?? "unknown", t)}</strong>
+          <span>{t("revision.objectiveLocation")}</span>
           <strong>
-            {humanize(unit?.locationId.split(":")[1] ?? "unknown")}
+            {tokenLabel(unit?.locationId.split(":")[1] ?? "unknown", t)}
           </strong>
         </div>
       </div>
       <div className="revision-lifecycles">
         {[first, revised].map((order) => (
           <div key={order?.id}>
-            <p className="panel-label">Revision {order?.revision}</p>
+            <p className="panel-label">
+              {t("revision.number", { revision: order?.revision ?? "?" })}
+            </p>
             <div className="compact-lifecycle">
               {order?.lifecycle.map((entry) => (
                 <span key={entry.eventId}>
-                  t={entry.occurredAt} {humanize(entry.status)}
+                  {t("common.time", { time: entry.occurredAt })}{" "}
+                  {tokenLabel(entry.status, t)}
                 </span>
               ))}
             </div>
@@ -649,63 +702,55 @@ function RevisionDebugView({
       </div>
       <p className="debug-caption">
         {moment === "before"
-          ? "At the ruler's first snapshot, only the original instruction exists. Debug truth shows how later events will coexist with it rather than overwrite it."
-          : "The countermand arrived thirty time units earlier. When the original order finally reached the guard, its lower revision made it stale—not nonexistent."}
+          ? t("revision.beforeCaption")
+          : t("revision.afterCaption")}
       </p>
     </div>
   );
 }
 
 function ConflictRulerView({ view }: { view: ContradictoryOrdersActorView }) {
+  const t = useT();
   const order = view.issuedOrders[0];
   const overruled = view.knownOutcome === "order_overruled";
   return (
     <div className="order-layout conflict-layout">
       <div className="command-panel">
-        <p className="panel-label">Royal command</p>
-        <h3>Hold the Imperial Palace</h3>
-        <p className="command-copy">
-          Commander Zhao is ordered to move the Palace Guard from its barracks
-          and secure the sovereign's residence.
-        </p>
+        <p className="panel-label">{t("conflict.royalCommand")}</p>
+        <h3>{t("conflict.holdPalace")}</h3>
+        <p className="command-copy">{t("conflict.commandCopy")}</p>
         <div className="status-banner conflict-status">
-          <span>Known outcome</span>
+          <span>{t("common.knownOutcome")}</span>
           <strong className={overruled ? "danger-text" : "pending-text"}>
-            {humanize(view.knownOutcome)}
+            {tokenLabel(view.knownOutcome, t)}
           </strong>
         </div>
         <p className="fog-note">
-          {overruled
-            ? "The commander's reply discloses a competing command from Chancellor Wei. The ruler still cannot see the commander's private deliberation."
-            : "The order is in the world. Silence does not reveal whether it is delayed, intercepted, obeyed, or contested."}
+          {overruled ? t("conflict.playerAfter") : t("conflict.playerBefore")}
         </p>
         <p className="order-reference">{order?.id}</p>
       </div>
 
       <div className="document-panel">
-        <p className="panel-label">Messages received</p>
+        <p className="panel-label">{t("conflict.messages")}</p>
         {view.observations.length === 0 ? (
           <div className="silence-card">
-            <span>NO REPLY</span>
-            <h3>The court waits.</h3>
-            <p>
-              Nothing in the ruler's current information confirms that the
-              Palace Guard even received the order.
-            </p>
+            <span>{t("conflict.noReply")}</span>
+            <h3>{t("conflict.waits")}</h3>
+            <p>{t("conflict.waitsCopy")}</p>
           </div>
         ) : (
           <div className="document-list">
             {view.observations.map((observation) => (
               <article className="document refusal" key={observation.id}>
                 <div className="card-topline">
-                  <span>t = {observation.observedAt}</span>
-                  <span>Commander Zhao</span>
+                  <span>
+                    {t("common.time", { time: observation.observedAt })}
+                  </span>
+                  <span>{t("common.commander")}</span>
                 </div>
-                <h3>Palace order not followed</h3>
-                <p>
-                  The Palace Guard has moved to secure the capital granary under
-                  Chancellor Wei's competing instruction.
-                </p>
+                <h3>{t("conflict.notFollowed")}</h3>
+                <p>{t("conflict.notFollowedCopy")}</p>
               </article>
             ))}
           </div>
@@ -722,29 +767,26 @@ function ConflictDebugView({
   run: ContradictoryOrdersRun;
   moment: "before" | "after";
 }) {
+  const t = useT();
   const episode =
     run.debugTruth.decisionEpisodes[contradictoryOrdersIds.decision];
   const unit = run.debugTruth.units[contradictoryOrdersIds.unit];
   const evaluations = episode?.evaluations ?? [];
   return (
     <div className="debug-panel conflict-debug">
-      <p className="debug-banner">
-        ADMINISTRATOR VIEW — COMMANDER DELIBERATION EXPOSED
-      </p>
+      <p className="debug-banner">{t("conflict.debugBanner")}</p>
       <div className="decision-summary">
         <div>
-          <p className="panel-label">Orders received together</p>
+          <p className="panel-label">{t("conflict.ordersTogether")}</p>
           <div className="truth-number">2</div>
-          <p>
-            Both messages arrived at t=120 and triggered one decision episode.
-          </p>
+          <p>{t("conflict.ordersTogetherCopy")}</p>
         </div>
         <div className="selected-action">
-          <span>Selected operation</span>
-          <strong>Secure the capital granary</strong>
-          <span>Objective unit location</span>
+          <span>{t("conflict.selectedOperation")}</span>
+          <strong>{t("conflict.secureGranary")}</strong>
+          <span>{t("revision.objectiveLocation")}</span>
           <strong>
-            {humanize(unit?.locationId.split(":")[1] ?? "unknown")}
+            {tokenLabel(unit?.locationId.split(":")[1] ?? "unknown", t)}
           </strong>
         </div>
       </div>
@@ -758,14 +800,20 @@ function ConflictDebugView({
               key={evaluation.orderId}
             >
               <div className="card-topline">
-                <span>{chancellor ? "Chancellor Wei" : "The Ruler"}</span>
+                <span>
+                  {chancellor ? t("common.chancellor") : t("common.ruler")}
+                </span>
                 <strong>{evaluation.total.toFixed(3)}</strong>
               </div>
-              <h3>{chancellor ? "Secure granary" : "Hold palace"}</h3>
+              <h3>
+                {chancellor
+                  ? t("conflict.secureGranaryShort")
+                  : t("conflict.holdPalaceShort")}
+              </h3>
               <div className="factor-list">
                 {evaluation.factors.map((factor) => (
                   <div key={`${evaluation.orderId}:${factor.kind}`}>
-                    <span>{factor.label}</span>
+                    <span>{tokenLabel(factor.kind, t)}</span>
                     <strong>{factor.score.toFixed(3)}</strong>
                   </div>
                 ))}
@@ -776,74 +824,80 @@ function ConflictDebugView({
       </div>
       <p className="debug-caption">
         {moment === "before"
-          ? "The ruler is still waiting, but the commander has already received both commands. Debug truth may reveal facts unavailable to the player."
-          : "Formal sovereignty remained with the ruler. Funding, appointment influence, threat beliefs, and practical access produced a different act of obedience."}
+          ? t("conflict.beforeCaption")
+          : t("conflict.afterCaption")}
       </p>
     </div>
   );
 }
 
 function PartialRulerView({ view }: { view: PartialImplementationActorView }) {
+  const t = useT();
   const completed = view.order.reportedFulfilledAmount ?? 0;
   const verified = view.order.verifiedFulfilledAmount;
   return (
     <div className="order-layout">
       <div className="command-panel">
-        <p className="panel-label">Royal command</p>
-        <h3>Send grain to the capital</h3>
-        <p className="command-copy">
-          Governor Ren is ordered to transfer provisions from the Northern
-          Provincial Granary to the Capital Relief Granary.
-        </p>
+        <p className="panel-label">{t("partial.royalCommand")}</p>
+        <h3>{t("partial.sendGrain")}</h3>
+        <p className="command-copy">{t("partial.commandCopy")}</p>
         <div className="order-metrics">
           <div>
-            <span>Ordered</span>
+            <span>{t("partial.ordered")}</span>
             <strong>{view.order.requestedAmount}</strong>
           </div>
           <div>
-            <span>{verified === undefined ? "Reported" : "Audit found"}</span>
+            <span>
+              {verified === undefined
+                ? t("partial.reported")
+                : t("partial.auditFound")}
+            </span>
             <strong>{verified ?? completed}</strong>
           </div>
         </div>
         <div
           className={`status-banner ${verified === undefined ? "success" : "warning"}`}
         >
-          <span>Known status</span>
-          <strong>{humanize(view.order.knownStatus)}</strong>
+          <span>{t("partial.knownStatus")}</span>
+          <strong>{tokenLabel(view.order.knownStatus, t)}</strong>
         </div>
         <p className="fog-note">
           {verified === undefined
-            ? "No objective ledger is available to the ruler. The completion figure comes from the governor's own return."
-            : `The independent audit contradicts the earlier return by ${completed - verified} units.`}
+            ? t("partial.beforeCopy")
+            : t("partial.afterCopy", { amount: completed - verified })}
         </p>
       </div>
 
       <div className="document-panel">
-        <p className="panel-label">Documents received</p>
+        <p className="panel-label">{t("partial.documents")}</p>
         <div className="document-list">
           {view.observations.map((observation) => {
             const report = readOrderReport(observation.payload.report);
             return (
               <article className="document" key={observation.id}>
                 <div className="card-topline">
-                  <span>t = {observation.observedAt}</span>
                   <span>
-                    {humanize(report?.basis ?? observation.sourceType)}
+                    {t("common.time", { time: observation.observedAt })}
+                  </span>
+                  <span>
+                    {tokenLabel(report?.basis ?? observation.sourceType, t)}
                   </span>
                 </div>
                 <h3>
                   {observation.sourceType === "acknowledgement"
-                    ? "Order acknowledged"
+                    ? t("partial.acknowledged")
                     : report?.basis === "independent_audit"
-                      ? `${report.amount} units verified`
-                      : `${report?.amount ?? "—"} units complete`}
+                      ? t("partial.verified", { amount: report.amount })
+                      : t("partial.complete", {
+                          amount: report?.amount ?? "—",
+                        })}
                 </h3>
                 <p>
                   {observation.sourceType === "acknowledgement"
-                    ? "The Northern Governor confirms receipt of the command."
+                    ? t("partial.acknowledgedCopy")
                     : report?.basis === "independent_audit"
-                      ? "Inspector Lin reports the amount that actually reached the capital ledger."
-                      : "Governor Ren reports that the royal command has been fulfilled in full."}
+                      ? t("partial.verifiedCopy")
+                      : t("partial.completeCopy")}
                 </p>
               </article>
             );
@@ -861,6 +915,7 @@ function PartialDebugView({
   run: PartialImplementationRun;
   moment: "before" | "after";
 }) {
+  const t = useT();
   const order = run.debugTruth.orders[partialImplementationIds.order];
   const northern =
     run.debugTruth.accounts[partialImplementationIds.northernGranary];
@@ -868,49 +923,48 @@ function PartialDebugView({
     run.debugTruth.accounts[partialImplementationIds.capitalGranary];
   return (
     <div className="debug-panel order-debug">
-      <p className="debug-banner">
-        ADMINISTRATOR VIEW — OBJECTIVE STATE EXPOSED
-      </p>
+      <p className="debug-banner">{t("partial.debugBanner")}</p>
       <div className="debug-order-grid">
         <div>
-          <p className="panel-label">Actually transferred</p>
+          <p className="panel-label">{t("partial.transferred")}</p>
           <div className="truth-number">{order?.fulfilledAmount}</div>
           <p>
-            of {order?.requestedAmount} ordered units. The governor's capacity
-            limited execution before either report reached the ruler.
+            {t("partial.transferredCopy", {
+              amount: order?.requestedAmount ?? "?",
+            })}
           </p>
         </div>
         <div className="ledger">
-          <p className="panel-label">Objective ledger</p>
+          <p className="panel-label">{t("partial.ledger")}</p>
           <div>
-            <span>{northern?.name}</span>
+            <span>{t("partial.northernGranary")}</span>
             <strong>{northern?.balance}</strong>
           </div>
           <div>
-            <span>{capital?.name}</span>
+            <span>{t("partial.capitalGranary")}</span>
             <strong>{capital?.balance}</strong>
           </div>
           <div>
-            <span>Falsely reported</span>
+            <span>{t("partial.falseReport")}</span>
             <strong>{order?.reportedFulfilledAmount}</strong>
           </div>
         </div>
       </div>
       <div className="lifecycle">
-        <p className="panel-label">Order lifecycle</p>
+        <p className="panel-label">{t("partial.lifecycle")}</p>
         <div className="lifecycle-track">
           {order?.lifecycle.map((entry) => (
             <div key={entry.eventId}>
-              <span>t={entry.occurredAt}</span>
-              <strong>{humanize(entry.status)}</strong>
+              <span>{t("common.time", { time: entry.occurredAt })}</span>
+              <strong>{tokenLabel(entry.status, t)}</strong>
             </div>
           ))}
         </div>
       </div>
       <p className="debug-caption">
         {moment === "before"
-          ? "At this moment the ruler has accepted the completion return; the partial transfer already exists in objective state."
-          : "The audit changes the ruler's knowledge. It does not retroactively change what happened."}
+          ? t("partial.beforeCaption")
+          : t("partial.afterCaption")}
       </p>
     </div>
   );
@@ -935,8 +989,8 @@ function readOrderReport(
   return { basis: report.basis, amount: report.claimedFulfilledAmount };
 }
 
-function humanize(value: string): string {
-  return value.replaceAll("_", " ");
+function tokenLabel(value: string, translator: Translator): string {
+  return translateToken(translator, value);
 }
 
 const root = document.getElementById("root");

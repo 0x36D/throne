@@ -1,4 +1,13 @@
 import { runLossOfControlScenario } from "@throne/scenario-mvp";
+import {
+  createTranslator,
+  defaultLocale,
+  isLocale,
+} from "@throne/localization";
+
+const requestedLocale = process.env.THRONE_LOCALE;
+const locale = isLocale(requestedLocale) ? requestedLocale : defaultLocale;
+const t = createTranslator(locale);
 
 const run = await runLossOfControlScenario();
 
@@ -10,13 +19,13 @@ for (const record of run.records) {
   }
 }
 
-console.log("\nRuler view after the first command is obeyed:");
+console.log(`\n${t("cli.rulerFirst")}`);
 console.log(JSON.stringify(run.rulerViewAfterFirstDecision, null, 2));
-console.log("\nRuler view after the later command is overruled:");
+console.log(`\n${t("cli.rulerFinal")}`);
 console.log(JSON.stringify(run.rulerViewFinal, null, 2));
-console.log("\nDerived practical control after the first decision:");
+console.log(`\n${t("cli.controlFirst")}`);
 console.log(JSON.stringify(run.controlAfterFirstDecision, null, 2));
-console.log("\nDerived practical control at the end:");
+console.log(`\n${t("cli.controlFinal")}`);
 console.log(JSON.stringify(run.controlFinal, null, 2));
-console.log("\nDebug truth:");
+console.log(`\n${t("cli.debugTruth")}`);
 console.log(JSON.stringify(run.debugTruth, null, 2));

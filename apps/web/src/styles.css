@@ -36,6 +36,41 @@ header {
   margin-bottom: 80px;
 }
 
+.header-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.language-switch {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid #3d3e34;
+}
+
+.language-switch button {
+  padding: 6px 10px;
+  border: 0;
+  color: #858274;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+}
+
+.language-switch button.active {
+  color: #ede8da;
+  background: #38392f;
+}
+
+html[lang="zh-CN"] h1,
+html[lang="zh-CN"] h2,
+html[lang="zh-CN"] h3 {
+  font-family: "Songti SC", "Noto Serif CJK SC", Georgia, serif;
+}
+
 .eyebrow {
   margin: 0 0 14px;
   color: #bd9a68;
@@ -1031,6 +1066,10 @@ article p {
   .section-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .header-topline {
+    align-items: flex-start;
   }
 
   .scenario-controls {

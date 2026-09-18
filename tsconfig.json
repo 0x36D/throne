@@ -18,6 +18,7 @@
       "@throne/shared-types": ["./packages/shared-types/src/index.ts"],
       "@throne/sim-core": ["./packages/sim-core/src/index.ts"],
       "@throne/agent-runtime": ["./packages/agent-runtime/src/index.ts"],
+      "@throne/localization": ["./packages/localization/src/index.ts"],
       "@throne/scenario-mvp": ["./packages/scenario-mvp/src/index.ts"]
     }
   },

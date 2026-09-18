@@ -38,6 +38,9 @@ importers:
 
   apps/sim-cli:
     dependencies:
+      '@throne/localization':
+        specifier: workspace:*
+        version: link:../../packages/localization
       '@throne/scenario-mvp':
         specifier: workspace:*
         version: link:../../packages/scenario-mvp
@@ -50,6 +53,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@throne/localization':
+        specifier: workspace:*
+        version: link:../../packages/localization
       '@throne/scenario-mvp':
         specifier: workspace:*
         version: link:../../packages/scenario-mvp
@@ -81,6 +87,8 @@ importers:
       '@throne/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+
+  packages/localization: {}
 
   packages/scenario-mvp:
     dependencies:
