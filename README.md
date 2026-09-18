@@ -2,7 +2,7 @@
 
 Throne is an experimental political simulation engine. It separates objective world state from what each actor can observe, believe, decide, attempt, and actually accomplish.
 
-The current repository is an architectural scaffold. The product specification is in [SPEC.md](./SPEC.md), the current implementation snapshot is in [STATUS.md](./STATUS.md), provider findings are in [docs/providers.md](./docs/providers.md), and the main architectural decisions are under [docs/architecture](./docs/architecture).
+The current repository is an architectural scaffold. The product specification is in [docs/SPEC.md](./docs/SPEC.md), the gameplay direction is in [docs/DESIGN.md](./docs/DESIGN.md), the current implementation snapshot is in [STATUS.md](./STATUS.md), provider findings are in [docs/providers.md](./docs/providers.md), and the main architectural decisions are under [docs/architecture](./docs/architecture).
 
 ## Local development
 
@@ -15,7 +15,7 @@ pnpm demo
 pnpm dev
 ```
 
-`pnpm demo` runs the contradictory-orders scenario through the event kernel. `pnpm dev` starts the local web shell, where the partial-implementation and contradictory-orders demonstrations can be inspected from ruler and administrator perspectives.
+`pnpm demo` runs the decision-revision scenario through the event kernel. `pnpm dev` starts the local web shell, where the partial-implementation, contradictory-orders, and decision-revision demonstrations can be inspected from ruler and administrator perspectives.
 
 ## Runtime shape
 

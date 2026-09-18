@@ -1,10 +1,14 @@
 import {
   contradictoryOrdersIds,
+  decisionRevisionIds,
   partialImplementationIds,
   runContradictoryOrdersScenario,
+  runDecisionRevisionScenario,
   runPartialImplementationScenario,
   type ContradictoryOrdersActorView,
   type ContradictoryOrdersRun,
+  type DecisionRevisionActorView,
+  type DecisionRevisionRun,
   type PartialImplementationActorView,
   type PartialImplementationRun,
 } from "@throne/scenario-mvp";
@@ -12,12 +16,12 @@ import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
-type ScenarioKey = "conflict" | "partial";
+type ScenarioKey = "revision" | "conflict" | "partial";
 
 const modes = [
   {
     name: "Play",
-    status: "Third vertical slice",
+    status: "Fourth vertical slice",
     description:
       "The player rules through orders and reports, never through direct access to objective state.",
   },
@@ -38,7 +42,8 @@ const modes = [
 function App() {
   const [partialRun, setPartialRun] = useState<PartialImplementationRun>();
   const [conflictRun, setConflictRun] = useState<ContradictoryOrdersRun>();
-  const [scenario, setScenario] = useState<ScenarioKey>("conflict");
+  const [revisionRun, setRevisionRun] = useState<DecisionRevisionRun>();
+  const [scenario, setScenario] = useState<ScenarioKey>("revision");
   const [view, setView] = useState<"ruler" | "debug">("ruler");
   const [moment, setMoment] = useState<"before" | "after">("before");
 
@@ -46,9 +51,11 @@ function App() {
     void Promise.all([
       runPartialImplementationScenario("web-partial-implementation"),
       runContradictoryOrdersScenario("web-contradictory-orders"),
-    ]).then(([partial, conflict]) => {
+      runDecisionRevisionScenario("web-decision-revision"),
+    ]).then(([partial, conflict, revision]) => {
       setPartialRun(partial);
       setConflictRun(conflict);
+      setRevisionRun(revision);
     });
   }, []);
 
@@ -57,7 +64,18 @@ function App() {
     setMoment("before");
     setView("ruler");
   };
+  const revision = scenario === "revision";
   const conflict = scenario === "conflict";
+  const scenarioTitle = revision
+    ? "Decision revision"
+    : conflict
+      ? "Conflicting orders"
+      : "Partial implementation";
+  const momentLabels = revision
+    ? ["First order", "After reversal"]
+    : conflict
+      ? ["Before response", "After response"]
+      : ["Before audit", "After audit"];
 
   return (
     <main>
@@ -72,6 +90,13 @@ function App() {
 
       <nav className="scenario-picker" aria-label="Vertical slice">
         <button
+          className={revision ? "active" : ""}
+          onClick={() => chooseScenario("revision")}
+        >
+          <span>Demo D</span>
+          Decision revision
+        </button>
+        <button
           className={conflict ? "active" : ""}
           onClick={() => chooseScenario("conflict")}
         >
@@ -79,7 +104,7 @@ function App() {
           Conflicting orders
         </button>
         <button
-          className={!conflict ? "active" : ""}
+          className={!revision && !conflict ? "active" : ""}
           onClick={() => chooseScenario("partial")}
         >
           <span>Demo B</span>
@@ -91,9 +116,7 @@ function App() {
         <div className="section-heading scenario-heading">
           <div>
             <p className="eyebrow">LIVE VERTICAL SLICE</p>
-            <h2>
-              {conflict ? "Conflicting orders" : "Partial implementation"}
-            </h2>
+            <h2>{scenarioTitle}</h2>
           </div>
           <div className="scenario-controls">
             <div className="view-switch" aria-label="Moment in the scenario">
@@ -101,13 +124,13 @@ function App() {
                 className={moment === "before" ? "active" : ""}
                 onClick={() => setMoment("before")}
               >
-                {conflict ? "Before response" : "Before audit"}
+                {momentLabels[0]}
               </button>
               <button
                 className={moment === "after" ? "active" : ""}
                 onClick={() => setMoment("after")}
               >
-                {conflict ? "After response" : "After audit"}
+                {momentLabels[1]}
               </button>
             </div>
             <div className="view-switch" aria-label="Simulation perspective">
@@ -127,8 +150,20 @@ function App() {
           </div>
         </div>
 
-        {!partialRun || !conflictRun ? (
+        {!partialRun || !conflictRun || !revisionRun ? (
           <p className="loading">Running scenario…</p>
+        ) : revision ? (
+          view === "ruler" ? (
+            <RevisionRulerView
+              view={
+                moment === "before"
+                  ? revisionRun.rulerViewAfterFirstOrder
+                  : revisionRun.rulerViewFinal
+              }
+            />
+          ) : (
+            <RevisionDebugView run={revisionRun} moment={moment} />
+          )
         ) : conflict ? (
           view === "ruler" ? (
             <ConflictRulerView
@@ -176,12 +211,21 @@ function App() {
         <div>
           <p className="eyebrow">CURRENT BOUNDARY</p>
           <h2 id="boundary-heading">
-            {conflict
-              ? "Authority is relational."
-              : "An order is not an effect."}
+            {revision
+              ? "A new decision does not erase the old one."
+              : conflict
+                ? "Authority is relational."
+                : "An order is not an effect."}
           </h2>
         </div>
-        {conflict ? (
+        {revision ? (
+          <ol>
+            <li>New evidence reopens a committed decision</li>
+            <li>The revised order travels independently</li>
+            <li>A faster courier overtakes the first</li>
+            <li>Both intentions remain in history</li>
+          </ol>
+        ) : conflict ? (
           <ol>
             <li>Messages arrive in simulation time</li>
             <li>Simultaneous orders enter one decision</li>
@@ -198,6 +242,170 @@ function App() {
         )}
       </section>
     </main>
+  );
+}
+
+function RevisionRulerView({ view }: { view: DecisionRevisionActorView }) {
+  const confirmed = view.knownOutcome === "revision_confirmed";
+  return (
+    <div className="revision-layout">
+      <div className="revision-command-panel">
+        <p className="panel-label">Decision record</p>
+        <div className="revision-orders">
+          {view.issuedOrders.map((order) => (
+            <article
+              className={`revision-order ${order.revision > 0 ? "current" : "superseded"}`}
+              key={order.id}
+            >
+              <div className="card-topline">
+                <span>Revision {order.revision}</span>
+                <span>t = {order.issuedAt}</span>
+              </div>
+              <h3>
+                {order.objective === "hold_imperial_palace"
+                  ? "Hold the Imperial Palace"
+                  : "Move to the East Gate"}
+              </h3>
+              <p>
+                {order.revision > 0
+                  ? "New intelligence reverses the earlier deployment. A faster courier carries the countermand."
+                  : "The first report prompts an immediate deployment of the Palace Guard."}
+              </p>
+              <span className="order-reference">{order.id}</span>
+            </article>
+          ))}
+        </div>
+        <div className="status-banner conflict-status">
+          <span>Known outcome</span>
+          <strong className={confirmed ? "success-text" : "pending-text"}>
+            {humanize(view.knownOutcome)}
+          </strong>
+        </div>
+        <p className="fog-note">
+          {confirmed
+            ? "The commander confirms that the later instruction took effect. The ruler learns the result only after both couriers have reached the guard."
+            : "Issuing a countermand does not retrieve the first messenger. The ruler cannot see which order will arrive first."}
+        </p>
+      </div>
+
+      <div className="document-panel">
+        <p className="panel-label">Intelligence and replies</p>
+        <div className="document-list">
+          {view.observations.map((observation) => {
+            const correcting =
+              observation.id === decisionRevisionIds.correctingObservation;
+            const report = observation.sourceType === "revision_report";
+            return (
+              <article
+                className={`document ${correcting ? "urgent-document" : ""}`}
+                key={observation.id}
+              >
+                <div className="card-topline">
+                  <span>t = {observation.observedAt}</span>
+                  <span>{humanize(observation.sourceType)}</span>
+                </div>
+                <h3>
+                  {report
+                    ? "Countermand confirmed"
+                    : correcting
+                      ? "The East Gate is a decoy"
+                      : "Armed movement at the East Gate"}
+                </h3>
+                <p>
+                  {report
+                    ? "Commander Zhao reports that the Palace Guard held the palace and ignored the late-arriving original order."
+                    : correcting
+                      ? "Independent intelligence warns that conspirators are approaching the palace."
+                      : "A field report warns of armed movement outside the eastern gate."}
+                </p>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RevisionDebugView({
+  run,
+  moment,
+}: {
+  run: DecisionRevisionRun;
+  moment: "before" | "after";
+}) {
+  const first = run.debugTruth.orders[decisionRevisionIds.firstOrder];
+  const revised = run.debugTruth.orders[decisionRevisionIds.revisedOrder];
+  const unit = run.debugTruth.units[decisionRevisionIds.unit];
+  const episode = run.debugTruth.decisionEpisodes[decisionRevisionIds.decision];
+  const firstArrival = first?.lifecycle.find(
+    (entry) => entry.status === "received",
+  )?.occurredAt;
+  const revisedArrival = revised?.lifecycle.find(
+    (entry) => entry.status === "received",
+  )?.occurredAt;
+
+  return (
+    <div className="debug-panel revision-debug">
+      <p className="debug-banner">ADMINISTRATOR VIEW — BOTH COURIERS EXPOSED</p>
+      <div className="courier-race">
+        <article className="courier-card late">
+          <div className="card-topline">
+            <span>Original order</span>
+            <strong>arrives t={firstArrival}</strong>
+          </div>
+          <h3>Move east</h3>
+          <p>Departed t=20 · travel time 100 · ignored as revision 0</p>
+        </article>
+        <div className="overtake-mark" aria-label="overtaken by">
+          ← overtaken by
+        </div>
+        <article className="courier-card winner">
+          <div className="card-topline">
+            <span>Countermand</span>
+            <strong>arrives t={revisedArrival}</strong>
+          </div>
+          <h3>Hold palace</h3>
+          <p>Departed t=50 · travel time 40 · executed as revision 1</p>
+        </article>
+      </div>
+      <div className="revision-truth-grid">
+        <div>
+          <p className="panel-label">Decision history</p>
+          <div className="truth-number">
+            {episode?.finalIntentIds.length ?? 0}
+          </div>
+          <p>committed intentions retained in one decision episode</p>
+        </div>
+        <div className="selected-action">
+          <span>Effective order</span>
+          <strong>{humanize(unit?.acceptedOrderId ?? "unknown")}</strong>
+          <span>Objective unit location</span>
+          <strong>
+            {humanize(unit?.locationId.split(":")[1] ?? "unknown")}
+          </strong>
+        </div>
+      </div>
+      <div className="revision-lifecycles">
+        {[first, revised].map((order) => (
+          <div key={order?.id}>
+            <p className="panel-label">Revision {order?.revision}</p>
+            <div className="compact-lifecycle">
+              {order?.lifecycle.map((entry) => (
+                <span key={entry.eventId}>
+                  t={entry.occurredAt} {humanize(entry.status)}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="debug-caption">
+        {moment === "before"
+          ? "At the ruler's first snapshot, only the original instruction exists. Debug truth shows how later events will coexist with it rather than overwrite it."
+          : "The countermand arrived thirty time units earlier. When the original order finally reached the guard, its lower revision made it stale—not nonexistent."}
+      </p>
+    </div>
   );
 }
 
