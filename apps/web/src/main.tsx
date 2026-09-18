@@ -1,14 +1,18 @@
 import {
   contradictoryOrdersIds,
   decisionRevisionIds,
+  lossOfControlIds,
   partialImplementationIds,
   runContradictoryOrdersScenario,
   runDecisionRevisionScenario,
+  runLossOfControlScenario,
   runPartialImplementationScenario,
   type ContradictoryOrdersActorView,
   type ContradictoryOrdersRun,
   type DecisionRevisionActorView,
   type DecisionRevisionRun,
+  type LossOfControlActorView,
+  type LossOfControlRun,
   type PartialImplementationActorView,
   type PartialImplementationRun,
 } from "@throne/scenario-mvp";
@@ -16,12 +20,12 @@ import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
-type ScenarioKey = "revision" | "conflict" | "partial";
+type ScenarioKey = "control" | "revision" | "conflict" | "partial";
 
 const modes = [
   {
     name: "Play",
-    status: "Fourth vertical slice",
+    status: "Fifth vertical slice",
     description:
       "The player rules through orders and reports, never through direct access to objective state.",
   },
@@ -43,7 +47,8 @@ function App() {
   const [partialRun, setPartialRun] = useState<PartialImplementationRun>();
   const [conflictRun, setConflictRun] = useState<ContradictoryOrdersRun>();
   const [revisionRun, setRevisionRun] = useState<DecisionRevisionRun>();
-  const [scenario, setScenario] = useState<ScenarioKey>("revision");
+  const [controlRun, setControlRun] = useState<LossOfControlRun>();
+  const [scenario, setScenario] = useState<ScenarioKey>("control");
   const [view, setView] = useState<"ruler" | "debug">("ruler");
   const [moment, setMoment] = useState<"before" | "after">("before");
 
@@ -52,10 +57,12 @@ function App() {
       runPartialImplementationScenario("web-partial-implementation"),
       runContradictoryOrdersScenario("web-contradictory-orders"),
       runDecisionRevisionScenario("web-decision-revision"),
-    ]).then(([partial, conflict, revision]) => {
+      runLossOfControlScenario("web-loss-of-control"),
+    ]).then(([partial, conflict, revision, control]) => {
       setPartialRun(partial);
       setConflictRun(conflict);
       setRevisionRun(revision);
+      setControlRun(control);
     });
   }, []);
 
@@ -64,18 +71,23 @@ function App() {
     setMoment("before");
     setView("ruler");
   };
+  const control = scenario === "control";
   const revision = scenario === "revision";
   const conflict = scenario === "conflict";
-  const scenarioTitle = revision
-    ? "Decision revision"
-    : conflict
-      ? "Conflicting orders"
-      : "Partial implementation";
-  const momentLabels = revision
-    ? ["First order", "After reversal"]
-    : conflict
-      ? ["Before response", "After response"]
-      : ["Before audit", "After audit"];
+  const scenarioTitle = control
+    ? "Emergent loss of control"
+    : revision
+      ? "Decision revision"
+      : conflict
+        ? "Conflicting orders"
+        : "Partial implementation";
+  const momentLabels = control
+    ? ["Command obeyed", "Control lost"]
+    : revision
+      ? ["First order", "After reversal"]
+      : conflict
+        ? ["Before response", "After response"]
+        : ["Before audit", "After audit"];
 
   return (
     <main>
@@ -89,6 +101,13 @@ function App() {
       </header>
 
       <nav className="scenario-picker" aria-label="Vertical slice">
+        <button
+          className={control ? "active" : ""}
+          onClick={() => chooseScenario("control")}
+        >
+          <span>Demo E</span>
+          Loss of control
+        </button>
         <button
           className={revision ? "active" : ""}
           onClick={() => chooseScenario("revision")}
@@ -104,7 +123,7 @@ function App() {
           Conflicting orders
         </button>
         <button
-          className={!revision && !conflict ? "active" : ""}
+          className={!control && !revision && !conflict ? "active" : ""}
           onClick={() => chooseScenario("partial")}
         >
           <span>Demo B</span>
@@ -150,8 +169,20 @@ function App() {
           </div>
         </div>
 
-        {!partialRun || !conflictRun || !revisionRun ? (
+        {!partialRun || !conflictRun || !revisionRun || !controlRun ? (
           <p className="loading">Running scenario…</p>
+        ) : control ? (
+          view === "ruler" ? (
+            <ControlRulerView
+              view={
+                moment === "before"
+                  ? controlRun.rulerViewAfterFirstDecision
+                  : controlRun.rulerViewFinal
+              }
+            />
+          ) : (
+            <ControlDebugView run={controlRun} moment={moment} />
+          )
         ) : revision ? (
           view === "ruler" ? (
             <RevisionRulerView
@@ -211,14 +242,23 @@ function App() {
         <div>
           <p className="eyebrow">CURRENT BOUNDARY</p>
           <h2 id="boundary-heading">
-            {revision
-              ? "A new decision does not erase the old one."
-              : conflict
-                ? "Authority is relational."
-                : "An order is not an effect."}
+            {control
+              ? "Office and control are different facts."
+              : revision
+                ? "A new decision does not erase the old one."
+                : conflict
+                  ? "Authority is relational."
+                  : "An order is not an effect."}
           </h2>
         </div>
-        {revision ? (
+        {control ? (
+          <ol>
+            <li>Formal sovereignty never changes</li>
+            <li>Material support changes a relationship</li>
+            <li>Repeated decisions create obedience history</li>
+            <li>Practical control is derived, never triggered</li>
+          </ol>
+        ) : revision ? (
           <ol>
             <li>New evidence reopens a committed decision</li>
             <li>The revised order travels independently</li>
@@ -242,6 +282,213 @@ function App() {
         )}
       </section>
     </main>
+  );
+}
+
+function ControlRulerView({ view }: { view: LossOfControlActorView }) {
+  const overruled = view.knownOutcome === "later_command_overruled";
+  return (
+    <div className="control-layout">
+      <div className="control-command-panel">
+        <div className="formal-seal">
+          <span>Formal authority</span>
+          <strong>The Ruler</strong>
+          <small>{view.organization.name} remains legally subordinate.</small>
+        </div>
+        <p className="panel-label">Royal orders</p>
+        <div className="control-orders">
+          {view.issuedOrders.map((order) => (
+            <article
+              className={`control-order ${order.round === 2 ? "latest" : ""}`}
+              key={order.id}
+            >
+              <div className="card-topline">
+                <span>Command {order.round}</span>
+                <span>
+                  {humanize(order.targetLocationId.split(":")[1] ?? "")}
+                </span>
+              </div>
+              <h3>Hold the Imperial Palace</h3>
+              <p>
+                {order.round === 1
+                  ? "The guard confirms the command and remains at the palace."
+                  : "The same formal authority now produces a different response."}
+              </p>
+            </article>
+          ))}
+        </div>
+        <div className="status-banner conflict-status">
+          <span>Known outcome</span>
+          <strong className={overruled ? "danger-text" : "success-text"}>
+            {humanize(view.knownOutcome)}
+          </strong>
+        </div>
+        <p className="fog-note">
+          {overruled
+            ? "Commander Zhao reports following Chancellor Wei's competing instruction. The ruler can see disobedience, but not the private weights that produced it."
+            : "The first command was obeyed. Nothing in the formal record warns that another patron is becoming more important to the guard."}
+        </p>
+      </div>
+
+      <div className="document-panel">
+        <p className="panel-label">Commander reports</p>
+        <div className="document-list">
+          {view.observations.map((observation, index) => {
+            const refused = index > 0;
+            return (
+              <article
+                className={`document ${refused ? "refusal" : ""}`}
+                key={observation.id}
+              >
+                <div className="card-topline">
+                  <span>t = {observation.observedAt}</span>
+                  <span>Commander Zhao</span>
+                </div>
+                <h3>
+                  {refused ? "Royal order not followed" : "Command obeyed"}
+                </h3>
+                <p>
+                  {refused
+                    ? "The Imperial Guard moved to protect the Military Pay Office under the chancellor's instruction."
+                    : "The Imperial Guard remains at the palace in accordance with the royal command."}
+                </p>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ControlDebugView({
+  run,
+  moment,
+}: {
+  run: LossOfControlRun;
+  moment: "before" | "after";
+}) {
+  const assessment =
+    moment === "before" ? run.controlAfterFirstDecision : run.controlFinal;
+  const episodeId =
+    moment === "before"
+      ? lossOfControlIds.firstDecision
+      : lossOfControlIds.secondDecision;
+  const episode = run.debugTruth.decisionEpisodes[episodeId];
+  const funding =
+    run.debugTruth.relationships[lossOfControlIds.fundingRelationship];
+  const visibleObedience = run.debugTruth.obedienceRecords.filter((record) => {
+    const order = run.debugTruth.orders[record.orderId];
+    return moment === "after" || order?.round === 1;
+  });
+  const leaderName =
+    assessment.leadingActorId === lossOfControlIds.ruler
+      ? "The Ruler"
+      : "Chancellor Wei";
+
+  return (
+    <div className="debug-panel control-debug">
+      <p className="debug-banner">
+        ADMINISTRATOR VIEW — FORMAL AND PRACTICAL POWER SEPARATED
+      </p>
+      <div className="authority-comparison">
+        <article>
+          <span>Formal authority</span>
+          <h3>The Ruler</h3>
+          <p>Unchanged in both rounds · sole recognized sovereign</p>
+        </article>
+        <div className="not-equal">≠</div>
+        <article className={moment === "after" ? "shifted" : ""}>
+          <span>Derived practical lead</span>
+          <h3>{leaderName}</h3>
+          <p>Computed from current relationships and latest obedience</p>
+        </article>
+      </div>
+
+      <div className="control-evidence-grid">
+        <div>
+          <p className="panel-label">Control evidence</p>
+          <div className="candidate-control-list">
+            {assessment.candidates.map((candidate) => (
+              <div key={candidate.actorId}>
+                <span>
+                  {candidate.actorId === lossOfControlIds.ruler
+                    ? "The Ruler"
+                    : "Chancellor Wei"}
+                </span>
+                <strong>{candidate.score.toFixed(3)}</strong>
+                <small>
+                  relations {candidate.relationshipSupport.toFixed(3)} · latest{" "}
+                  {humanize(candidate.latestObedience)}
+                </small>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="payroll-card">
+          <p className="panel-label">Material dependency</p>
+          <span>Chancellor funding relationship</span>
+          <strong>
+            {moment === "before"
+              ? funding?.history[0]?.strength.toFixed(2)
+              : funding?.strength.toFixed(2)}
+          </strong>
+          <p>
+            {moment === "before"
+              ? "The guard payroll still carries 100 in arrears."
+              : "At t=100 the chancellor paid all 100 in arrears from his reserve."}
+          </p>
+        </div>
+      </div>
+
+      <div className="control-decision-grid">
+        {episode?.evaluations.map((evaluation) => {
+          const selected = episode.selectedOrderId === evaluation.orderId;
+          const chancellor = evaluation.orderId.includes("chancellor");
+          return (
+            <article
+              className={`score-card ${selected ? "selected" : ""}`}
+              key={evaluation.orderId}
+            >
+              <div className="card-topline">
+                <span>{chancellor ? "Chancellor Wei" : "The Ruler"}</span>
+                <strong>{evaluation.total.toFixed(3)}</strong>
+              </div>
+              <h3>{selected ? "Selected" : "Rejected"}</h3>
+              <div className="factor-list">
+                {evaluation.factors.map((factor) => (
+                  <div key={`${evaluation.orderId}:${factor.kind}`}>
+                    <span>{factor.label}</span>
+                    <strong>{factor.score.toFixed(3)}</strong>
+                  </div>
+                ))}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="obedience-history">
+        <p className="panel-label">Objective obedience history</p>
+        {visibleObedience.map((record) => (
+          <span
+            className={record.obeyed ? "obeyed" : "refused"}
+            key={record.id}
+          >
+            round {run.debugTruth.orders[record.orderId]?.round} ·{" "}
+            {record.issuerId === lossOfControlIds.ruler
+              ? "ruler"
+              : "chancellor"}{" "}
+            · {record.obeyed ? "obeyed" : "not obeyed"}
+          </span>
+        ))}
+      </div>
+      <p className="debug-caption">
+        {moment === "before"
+          ? "Formal command, legal recognition, personal loyalty, and the first act of obedience still make the ruler the practical leader."
+          : "No control flag changed. A concrete payment changed one relationship; the next decision and act of obedience changed the derived result."}
+      </p>
+    </div>
   );
 }
 

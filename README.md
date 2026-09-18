@@ -15,7 +15,7 @@ pnpm demo
 pnpm dev
 ```
 
-`pnpm demo` runs the decision-revision scenario through the event kernel. `pnpm dev` starts the local web shell, where the partial-implementation, contradictory-orders, and decision-revision demonstrations can be inspected from ruler and administrator perspectives.
+`pnpm demo` runs the emergent-loss-of-control scenario through the event kernel. `pnpm dev` starts the local web shell, where the partial-implementation, contradictory-orders, decision-revision, and loss-of-control demonstrations can be inspected from ruler and administrator perspectives.
 
 ## Runtime shape
 
