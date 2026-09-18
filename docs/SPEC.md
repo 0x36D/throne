@@ -4,6 +4,8 @@ Status: MVP architecture specification
 Audience: Codex / implementation agents / human reviewers  
 Primary goal: Build a headless political simulation prototype that can demonstrate incomplete information, imperfect command execution, autonomous actors, unstable political order, and time-dependent decision processes without requiring a full historical grand-strategy game.
 
+Gameplay intent and design maturity are documented in [DESIGN.md](./DESIGN.md). That supplement does not automatically expand this MVP's scope or override its architectural boundaries; conflicts require an explicit design decision and synchronized documentation.
+
 ---
 
 ## 1. Project Intent
