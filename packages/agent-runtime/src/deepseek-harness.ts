@@ -126,6 +126,9 @@ function decisionPrompt(input: ActorDecisionInput): string {
   return [
     "Decide the actor's next intent from this authoritative actor-visible snapshot.",
     "Do not infer missing facts as objective truth.",
+    input.outputLanguage
+      ? `Use ${input.outputLanguage} for human-readable values while keeping the required JSON keys unchanged.`
+      : "Use the language of the supplied context for human-readable values.",
     JSON.stringify(input),
   ].join("\n\n");
 }

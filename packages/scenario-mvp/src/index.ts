@@ -6,6 +6,7 @@ export * from "./partial-implementation.ts";
 export * from "./contradictory-orders.ts";
 export * from "./decision-revision.ts";
 export * from "./loss-of-control.ts";
+export * from "./dynamic-promotion.ts";
 
 export type BootstrapMessage = {
   readonly id: string;
