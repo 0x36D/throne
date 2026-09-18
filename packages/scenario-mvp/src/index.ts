@@ -5,6 +5,7 @@ export * from "./false-report.ts";
 export * from "./partial-implementation.ts";
 export * from "./contradictory-orders.ts";
 export * from "./decision-revision.ts";
+export * from "./loss-of-control.ts";
 
 export type BootstrapMessage = {
   readonly id: string;
