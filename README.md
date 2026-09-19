@@ -15,7 +15,7 @@ pnpm demo
 pnpm dev
 ```
 
-`pnpm demo` runs the dynamic-actor-promotion scenario through the event kernel. Set `THRONE_LOCALE=en` to print its headings in English; Chinese is the default. `pnpm dev` starts the local web shell, where the partial-implementation, contradictory-orders, decision-revision, loss-of-control, and dynamic-promotion demonstrations can be inspected from ruler and administrator perspectives. The language switch is persisted locally in the browser.
+`pnpm demo` runs the dynamic-actor-promotion scenario through the event kernel. Set `THRONE_LOCALE=en` to print its headings in English; Chinese is the default. `pnpm dev` starts the local web app. Its default capital-crisis scene pauses for a real ruler decision, resumes through delayed order execution and reporting, and can then expose the recorded causal history in the administrator view. The earlier mechanism demonstrations remain available alongside it. The language switch is persisted locally in the browser.
 
 ## Runtime shape
 
@@ -25,6 +25,6 @@ pnpm dev
 - `packages/scenario-mvp` contains scenario data and domain rules without modifying the kernel.
 - `apps/sim-cli` is the headless runner.
 - `packages/localization` owns the typed Chinese and English display catalogs; simulation identifiers remain language-neutral.
-- `apps/web` is the localized ruler/debug shell and will grow into the player, observer, replay, and batch-analysis interface.
+- `apps/web` is the localized player/debug shell and will grow into the observer, replay, and batch-analysis interface.
 
 DeepSeek Harness is consumed as a pinned external runtime through an adapter. Its source code is not vendored into this repository.

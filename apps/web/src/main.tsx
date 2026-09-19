@@ -4,11 +4,13 @@ import {
   dynamicPromotionIds,
   lossOfControlIds,
   partialImplementationIds,
+  playerDecisionIds,
   runContradictoryOrdersScenario,
   runDecisionRevisionScenario,
   runDynamicPromotionScenario,
   runLossOfControlScenario,
   runPartialImplementationScenario,
+  startPlayerDecisionSession,
   type ContradictoryOrdersActorView,
   type ContradictoryOrdersRun,
   type DecisionRevisionActorView,
@@ -18,6 +20,9 @@ import {
   type LossOfControlRun,
   type PartialImplementationActorView,
   type PartialImplementationRun,
+  type PlayerChoiceId,
+  type PlayerDecisionRun,
+  type PlayerDecisionSession,
 } from "@throne/scenario-mvp";
 import {
   createTranslator,
@@ -39,7 +44,7 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 type ScenarioKey =
-  "promotion" | "control" | "revision" | "conflict" | "partial";
+  "play" | "promotion" | "control" | "revision" | "conflict" | "partial";
 
 const modes = ["play", "observe", "batch"] as const;
 const localeStorageKey = "throne.locale";
@@ -60,7 +65,12 @@ function App() {
   const [revisionRun, setRevisionRun] = useState<DecisionRevisionRun>();
   const [controlRun, setControlRun] = useState<LossOfControlRun>();
   const [promotionRun, setPromotionRun] = useState<DynamicPromotionRun>();
-  const [scenario, setScenario] = useState<ScenarioKey>("promotion");
+  const [playerSession, setPlayerSession] = useState<PlayerDecisionSession>();
+  const [playerRun, setPlayerRun] = useState<PlayerDecisionRun>();
+  const [playerResolving, setPlayerResolving] = useState(false);
+  const [playerError, setPlayerError] = useState(false);
+  const [playerSessionNumber, setPlayerSessionNumber] = useState(1);
+  const [scenario, setScenario] = useState<ScenarioKey>("play");
   const [view, setView] = useState<"ruler" | "debug">("ruler");
   const [moment, setMoment] = useState<"before" | "after">("before");
 
@@ -84,6 +94,23 @@ function App() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    void startPlayerDecisionSession({
+      runId: `web-player-decision-${playerSessionNumber}`,
+      outputLanguage: locale,
+    })
+      .then((session) => {
+        if (active) setPlayerSession(session);
+      })
+      .catch(() => {
+        if (active) setPlayerError(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [playerSessionNumber]);
+
+  useEffect(() => {
     window.localStorage.setItem(localeStorageKey, locale);
     document.documentElement.lang = locale;
   }, [locale]);
@@ -93,19 +120,42 @@ function App() {
     setMoment("before");
     setView("ruler");
   };
+  const submitPlayerChoice = async (choiceId: PlayerChoiceId) => {
+    if (!playerSession || playerRun || playerResolving) return;
+    setPlayerResolving(true);
+    setPlayerError(false);
+    try {
+      setPlayerRun(await playerSession.choose(choiceId));
+    } catch {
+      setPlayerError(true);
+    } finally {
+      setPlayerResolving(false);
+    }
+  };
+  const restartPlayerScenario = () => {
+    setPlayerSession(undefined);
+    setPlayerRun(undefined);
+    setPlayerError(false);
+    setPlayerResolving(false);
+    setView("ruler");
+    setPlayerSessionNumber((value) => value + 1);
+  };
+  const playing = scenario === "play";
   const promotion = scenario === "promotion";
   const control = scenario === "control";
   const revision = scenario === "revision";
   const conflict = scenario === "conflict";
-  const scenarioTitle = promotion
-    ? t("scenario.promotion.title")
-    : control
-      ? t("scenario.control.title")
-      : revision
-        ? t("scenario.revision.short")
-        : conflict
-          ? t("scenario.conflict.short")
-          : t("scenario.partial.short");
+  const scenarioTitle = playing
+    ? t("scenario.play.title")
+    : promotion
+      ? t("scenario.promotion.title")
+      : control
+        ? t("scenario.control.title")
+        : revision
+          ? t("scenario.revision.short")
+          : conflict
+            ? t("scenario.conflict.short")
+            : t("scenario.partial.short");
   const momentLabels = promotion
     ? [t("scenario.promotion.before"), t("scenario.promotion.after")]
     : control
@@ -143,6 +193,13 @@ function App() {
 
         <nav className="scenario-picker" aria-label={t("app.scenarioPicker")}>
           <button
+            className={playing ? "active" : ""}
+            onClick={() => chooseScenario("play")}
+          >
+            <span>{t("scenario.play.badge")}</span>
+            {t("scenario.play.short")}
+          </button>
+          <button
             className={promotion ? "active" : ""}
             onClick={() => chooseScenario("promotion")}
           >
@@ -172,7 +229,9 @@ function App() {
           </button>
           <button
             className={
-              !promotion && !control && !revision && !conflict ? "active" : ""
+              !playing && !promotion && !control && !revision && !conflict
+                ? "active"
+                : ""
             }
             onClick={() => chooseScenario("partial")}
           >
@@ -188,20 +247,22 @@ function App() {
               <h2>{scenarioTitle}</h2>
             </div>
             <div className="scenario-controls">
-              <div className="view-switch" aria-label={t("app.momentPicker")}>
-                <button
-                  className={moment === "before" ? "active" : ""}
-                  onClick={() => setMoment("before")}
-                >
-                  {momentLabels[0]}
-                </button>
-                <button
-                  className={moment === "after" ? "active" : ""}
-                  onClick={() => setMoment("after")}
-                >
-                  {momentLabels[1]}
-                </button>
-              </div>
+              {!playing ? (
+                <div className="view-switch" aria-label={t("app.momentPicker")}>
+                  <button
+                    className={moment === "before" ? "active" : ""}
+                    onClick={() => setMoment("before")}
+                  >
+                    {momentLabels[0]}
+                  </button>
+                  <button
+                    className={moment === "after" ? "active" : ""}
+                    onClick={() => setMoment("after")}
+                  >
+                    {momentLabels[1]}
+                  </button>
+                </div>
+              ) : null}
               <div
                 className="view-switch"
                 aria-label={t("app.perspectivePicker")}
@@ -215,6 +276,7 @@ function App() {
                 <button
                   className={view === "debug" ? "active" : ""}
                   onClick={() => setView("debug")}
+                  disabled={playing && !playerRun}
                 >
                   {t("app.debugView")}
                 </button>
@@ -226,8 +288,22 @@ function App() {
           !conflictRun ||
           !revisionRun ||
           !controlRun ||
-          !promotionRun ? (
+          !promotionRun ||
+          !playerSession ? (
             <p className="loading">{t("app.loading")}</p>
+          ) : playing ? (
+            view === "ruler" ? (
+              <PlayableRulerView
+                session={playerSession}
+                run={playerRun}
+                resolving={playerResolving}
+                failed={playerError}
+                onChoose={submitPlayerChoice}
+                onRestart={restartPlayerScenario}
+              />
+            ) : playerRun ? (
+              <PlayableDebugView run={playerRun} />
+            ) : null
           ) : promotion ? (
             view === "ruler" ? (
               <PromotionRulerView
@@ -311,18 +387,27 @@ function App() {
           <div>
             <p className="eyebrow">{t("app.currentBoundary")}</p>
             <h2 id="boundary-heading">
-              {promotion
-                ? t("boundary.promotion.title")
-                : control
-                  ? t("boundary.control.title")
-                  : revision
-                    ? t("boundary.revision.title")
-                    : conflict
-                      ? t("boundary.conflict.title")
-                      : t("boundary.partial.title")}
+              {playing
+                ? t("boundary.play.title")
+                : promotion
+                  ? t("boundary.promotion.title")
+                  : control
+                    ? t("boundary.control.title")
+                    : revision
+                      ? t("boundary.revision.title")
+                      : conflict
+                        ? t("boundary.conflict.title")
+                        : t("boundary.partial.title")}
             </h2>
           </div>
-          {promotion ? (
+          {playing ? (
+            <ol>
+              <li>{t("boundary.play.1")}</li>
+              <li>{t("boundary.play.2")}</li>
+              <li>{t("boundary.play.3")}</li>
+              <li>{t("boundary.play.4")}</li>
+            </ol>
+          ) : promotion ? (
             <ol>
               <li>{t("boundary.promotion.1")}</li>
               <li>{t("boundary.promotion.2")}</li>
@@ -361,6 +446,180 @@ function App() {
         </section>
       </main>
     </I18nContext.Provider>
+  );
+}
+
+function PlayableRulerView({
+  session,
+  run,
+  resolving,
+  failed,
+  onChoose,
+  onRestart,
+}: {
+  session: PlayerDecisionSession;
+  run: PlayerDecisionRun | undefined;
+  resolving: boolean;
+  failed: boolean;
+  onChoose(choiceId: PlayerChoiceId): void;
+  onRestart(): void;
+}) {
+  const t = useT();
+  const view = run?.rulerViewFinal ?? session.rulerView;
+  const secured = view.knownOutcome === "palace_secured";
+  const resolved = view.decisionStatus === "resolved";
+
+  return (
+    <div className="playable-layout">
+      <div className="decision-docket">
+        <div className="play-time">
+          <span>{t("play.simulationTime")}</span>
+          <strong>{view.simulationTime}</strong>
+        </div>
+        <p className="panel-label">{t("play.docket")}</p>
+        <h3>{t("play.crisisTitle")}</h3>
+        <p className="command-copy">{t("play.crisisCopy")}</p>
+        <div className="intelligence-grid">
+          <article>
+            <div className="card-topline">
+              <span>{t("common.time", { time: 10 })}</span>
+              <span>{t("play.eastSource")}</span>
+            </div>
+            <h3>{t("play.eastReportTitle")}</h3>
+            <p>{t("play.eastReportCopy")}</p>
+          </article>
+          <article>
+            <div className="card-topline">
+              <span>{t("common.time", { time: 10 })}</span>
+              <span>{t("play.palaceSource")}</span>
+            </div>
+            <h3>{t("play.palaceReportTitle")}</h3>
+            <p>{t("play.palaceReportCopy")}</p>
+          </article>
+        </div>
+      </div>
+
+      <div className="player-choice-panel">
+        {!resolved ? (
+          <>
+            <p className="panel-label">{t("play.awaiting")}</p>
+            <h3>{t("play.chooseTitle")}</h3>
+            <p>{t("play.chooseCopy")}</p>
+            <div className="player-choice-grid">
+              <button
+                disabled={resolving}
+                onClick={() => onChoose("hold_imperial_palace")}
+              >
+                <span>{t("play.holdTitle")}</span>
+                <small>{t("play.holdCopy")}</small>
+                <strong>
+                  {resolving ? t("play.resolving") : t("play.issue")}
+                </strong>
+              </button>
+              <button
+                disabled={resolving}
+                onClick={() => onChoose("move_to_east_gate")}
+              >
+                <span>{t("play.eastTitle")}</span>
+                <small>{t("play.eastCopy")}</small>
+                <strong>
+                  {resolving ? t("play.resolving") : t("play.issue")}
+                </strong>
+              </button>
+            </div>
+            {failed ? <p className="play-error">{t("play.error")}</p> : null}
+          </>
+        ) : (
+          <>
+            <p className="panel-label">{t("play.resultLabel")}</p>
+            <h3>
+              {secured ? t("play.securedTitle") : t("play.breachedTitle")}
+            </h3>
+            <p>{secured ? t("play.securedCopy") : t("play.breachedCopy")}</p>
+            <div
+              className={`outcome-report ${secured ? "secured" : "breached"}`}
+            >
+              <span>{t("play.selectedOrder")}</span>
+              <strong>
+                {view.selectedChoiceId === "hold_imperial_palace"
+                  ? t("play.holdTitle")
+                  : t("play.eastTitle")}
+              </strong>
+              <span>{t("play.reportTitle")}</span>
+              <p>
+                {secured ? t("play.reportSecured") : t("play.reportBreached")}
+              </p>
+            </div>
+            <button className="restart-button" onClick={onRestart}>
+              {t("play.restart")}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PlayableDebugView({ run }: { run: PlayerDecisionRun }) {
+  const t = useT();
+  const order = run.debugTruth.order;
+  return (
+    <div className="debug-panel playable-debug">
+      <p className="debug-banner">{t("play.debugBanner")}</p>
+      <div className="playable-truth-grid">
+        <article>
+          <span>{t("play.trueThreat")}</span>
+          <h3>{t("play.hiddenThreat")}</h3>
+          <code>{run.debugTruth.trueThreat}</code>
+        </article>
+        <article>
+          <span>{t("play.actualOutcome")}</span>
+          <h3>
+            {run.debugTruth.outcome === "palace_secured"
+              ? t("play.securedTitle")
+              : t("play.breachedTitle")}
+          </h3>
+          <code>{run.debugTruth.outcome}</code>
+        </article>
+        <article>
+          <span>{t("play.unitLocation")}</span>
+          <h3>
+            {run.debugTruth.unit.locationId === playerDecisionIds.palace
+              ? t("control.holdPalace")
+              : t("revision.moveEast")}
+          </h3>
+          <code>{run.debugTruth.unit.locationId}</code>
+        </article>
+      </div>
+      <div className="playable-record-grid">
+        <div>
+          <p className="panel-label">{t("play.decisionRecord")}</p>
+          <div className="recorded-decision">
+            <span>{t("promotion.capability")}</span>
+            <strong>
+              {order.choiceId === "hold_imperial_palace"
+                ? t("play.holdTitle")
+                : t("play.eastTitle")}
+            </strong>
+            <span>
+              {t("common.time", { time: order.lifecycle[0]?.occurredAt ?? 10 })}
+            </span>
+          </div>
+        </div>
+        <div>
+          <p className="panel-label">{t("play.orderLifecycle")}</p>
+          <div className="compact-lifecycle">
+            {order.lifecycle.map((entry) => (
+              <span key={entry.eventId}>
+                {t("common.time", { time: entry.occurredAt })} ·{" "}
+                {tokenLabel(entry.status, t)}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+      <p className="debug-caption">{t("play.debugCaption")}</p>
+    </div>
   );
 }
 

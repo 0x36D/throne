@@ -25,7 +25,7 @@ export const en = {
   "cli.promotionAfter": "Persistent actor after promotion:",
   "cli.promotionRuler": "Ruler view after the promoted decision:",
   "mode.play.name": "Play",
-  "mode.play.status": "Sixth vertical slice",
+  "mode.play.status": "First playable loop",
   "mode.play.description":
     "The player rules through orders and reports, never through direct access to objective state.",
   "mode.observe.name": "Observe",
@@ -36,6 +36,9 @@ export const en = {
   "mode.batch.status": "Designed",
   "mode.batch.description":
     "Run the same scenario repeatedly and compare distributions and causal traces.",
+  "scenario.play.badge": "Playable",
+  "scenario.play.short": "Capital crisis",
+  "scenario.play.title": "The East Gate crisis",
   "scenario.promotion.short": "Actor promotion",
   "scenario.promotion.title": "Dynamic actor promotion",
   "scenario.promotion.before": "Lightweight actor",
@@ -53,6 +56,11 @@ export const en = {
   "scenario.partial.short": "Partial implementation",
   "scenario.partial.before": "Before audit",
   "scenario.partial.after": "After audit",
+  "boundary.play.title": "A choice becomes history through the simulation.",
+  "boundary.play.1": "The simulation pauses on an open human decision",
+  "boundary.play.2": "The player sees reports, not objective truth",
+  "boundary.play.3": "The choice creates an intent and a delayed order",
+  "boundary.play.4": "The completed history replays without player input",
   "boundary.promotion.title": "Importance changes cognition, not identity.",
   "boundary.promotion.1": "A lightweight actor already has persistent history",
   "boundary.promotion.2": "World facts create promotion signals",
@@ -234,6 +242,56 @@ export const en = {
     "At this moment the ruler has accepted the completion return; the partial transfer already exists in objective state.",
   "partial.afterCaption":
     "The audit changes the ruler's knowledge. It does not retroactively change what happened.",
+  "play.simulationTime": "Simulation time",
+  "play.docket": "Urgent royal docket",
+  "play.crisisTitle": "Two warnings. One guard.",
+  "play.crisisCopy":
+    "The Palace Guard can secure one position before nightfall. The reports conflict, and neither source can verify the other.",
+  "play.eastSource": "East Gate scout",
+  "play.eastReportTitle": "Armed movement outside the East Gate",
+  "play.eastReportCopy":
+    "A field scout reports an organized column gathering beyond the gate. Its destination is unknown.",
+  "play.palaceSource": "Palace inspector",
+  "play.palaceReportTitle": "Official seals are missing",
+  "play.palaceReportCopy":
+    "An internal inspection finds two service seals missing and unexplained movement through palace corridors.",
+  "play.awaiting": "Simulation paused · decree required",
+  "play.chooseTitle": "Where will you send the Palace Guard?",
+  "play.chooseCopy":
+    "You cannot verify the objective threat before acting. Your order will travel through the world and may arrive too late to reverse.",
+  "play.holdTitle": "Hold the Imperial Palace",
+  "play.holdCopy":
+    "Keep the guard inside the palace walls and treat the internal warning as the greater risk.",
+  "play.eastTitle": "Move to the East Gate",
+  "play.eastCopy":
+    "Deploy the guard to confront the visible armed movement before it enters the capital.",
+  "play.issue": "Issue decree",
+  "play.resolving": "Dispatching…",
+  "play.error": "The decree could not be committed. Start the scene again.",
+  "play.resultLabel": "Commander report · t = 90",
+  "play.securedTitle": "The palace is secure.",
+  "play.securedCopy":
+    "Your order kept the guard at the palace while infiltrators attempted to enter through the service corridors.",
+  "play.breachedTitle": "The palace archive was breached.",
+  "play.breachedCopy":
+    "The East Gate column dispersed without battle. While the guard was away, infiltrators entered the palace archive.",
+  "play.selectedOrder": "Your recorded order",
+  "play.reportTitle": "Report received",
+  "play.reportSecured":
+    "Commander Zhao reports that the guard detained the infiltrators and recovered the missing seals.",
+  "play.reportBreached":
+    "Commander Zhao reports finding no attack at the East Gate; the palace inspector separately confirms the archive breach.",
+  "play.restart": "Play this decision again",
+  "play.debugBanner":
+    "ADMINISTRATOR VIEW — HIDDEN TRUTH AND FULL CAUSAL RECORD",
+  "play.trueThreat": "Objective threat",
+  "play.hiddenThreat": "Palace infiltration",
+  "play.actualOutcome": "Objective outcome",
+  "play.unitLocation": "Final guard location",
+  "play.decisionRecord": "Human decision record",
+  "play.orderLifecycle": "Order lifecycle",
+  "play.debugCaption":
+    "The UI submitted a structured human decision. Only the later order, travel, execution, and report events changed the world and the ruler's knowledge.",
   "promotion.playerTitle": "Palace archive channel",
   "promotion.noReport": "No report received",
   "promotion.noReportCopy":
@@ -345,7 +403,7 @@ export const zhCN: Record<MessageKey, string> = {
   "cli.promotionAfter": "晋升后的持久角色：",
   "cli.promotionRuler": "晋升决策完成后的统治者视角：",
   "mode.play.name": "游玩",
-  "mode.play.status": "第六个纵向切片",
+  "mode.play.status": "首个可玩闭环",
   "mode.play.description":
     "玩家通过命令和奏报统治，而不能直接读取客观世界状态。",
   "mode.observe.name": "观察",
@@ -355,6 +413,9 @@ export const zhCN: Record<MessageKey, string> = {
   "mode.batch.name": "批量模拟",
   "mode.batch.status": "已设计",
   "mode.batch.description": "重复运行同一场景，比较结果分布与因果轨迹。",
+  "scenario.play.badge": "可试玩",
+  "scenario.play.short": "京城危机",
+  "scenario.play.title": "东门危机",
   "scenario.promotion.short": "角色晋升",
   "scenario.promotion.title": "动态角色晋升",
   "scenario.promotion.before": "轻量角色",
@@ -372,6 +433,11 @@ export const zhCN: Record<MessageKey, string> = {
   "scenario.partial.short": "部分执行",
   "scenario.partial.before": "审计之前",
   "scenario.partial.after": "审计之后",
+  "boundary.play.title": "一次选择通过模拟成为历史。",
+  "boundary.play.1": "模拟在等待玩家决策时暂停",
+  "boundary.play.2": "玩家看到的是奏报，而非客观真相",
+  "boundary.play.3": "选择产生意图和延迟传递的命令",
+  "boundary.play.4": "完成后的历史无需玩家再次输入即可重放",
   "boundary.promotion.title": "重要性改变认知方式，而不是人物身份。",
   "boundary.promotion.1": "轻量角色已经拥有持久历史",
   "boundary.promotion.2": "客观世界事实产生晋升信号",
@@ -527,6 +593,52 @@ export const zhCN: Record<MessageKey, string> = {
     "此时皇帝已经接受完成回报，但部分调运这一客观事实早已发生。",
   "partial.afterCaption":
     "审计改变了皇帝的认知，却不会追溯改变已经发生的事情。",
+  "play.simulationTime": "模拟时间",
+  "play.docket": "御前急务",
+  "play.crisisTitle": "两份警报，一支禁军。",
+  "play.crisisCopy":
+    "禁军在入夜前只能守住一处。两份奏报彼此矛盾，双方都无法核实另一方的消息。",
+  "play.eastSource": "东门斥候",
+  "play.eastReportTitle": "东门外发现武装调动",
+  "play.eastReportCopy":
+    "斥候回报，一支组织严密的队伍正在城门外集结，去向不明。",
+  "play.palaceSource": "宫城巡检",
+  "play.palaceReportTitle": "两枚官印失踪",
+  "play.palaceReportCopy":
+    "宫内巡查发现两枚通行官印失踪，内廷走廊还出现了无法解释的人员流动。",
+  "play.awaiting": "模拟已暂停 · 等待圣旨",
+  "play.chooseTitle": "你要把禁军派到哪里？",
+  "play.chooseCopy":
+    "你无法在行动前确认真正的威胁。命令会在世界中传递，等到抵达时，可能已经来不及反悔。",
+  "play.holdTitle": "守卫皇宫",
+  "play.holdCopy": "让禁军留在宫墙之内，把内部警报视为更大的风险。",
+  "play.eastTitle": "调兵东门",
+  "play.eastCopy": "派禁军迎击看得见的武装调动，阻止其进入京城。",
+  "play.issue": "颁布圣旨",
+  "play.resolving": "正在传旨……",
+  "play.error": "这道命令未能写入模拟，请重新开始此场景。",
+  "play.resultLabel": "统领回报 · t = 90",
+  "play.securedTitle": "皇宫安然无恙。",
+  "play.securedCopy":
+    "你的命令使禁军留守宫城，恰逢潜入者试图通过内廷走廊进入。",
+  "play.breachedTitle": "宫廷档案库失守。",
+  "play.breachedCopy":
+    "东门外的队伍未战而散；禁军离开期间，潜入者闯入了宫廷档案库。",
+  "play.selectedOrder": "你留下的命令",
+  "play.reportTitle": "收到回报",
+  "play.reportSecured": "赵统领回报，禁军拘捕了潜入者，并找回失踪的官印。",
+  "play.reportBreached":
+    "赵统领回报东门并无进攻；宫城巡检另行确认档案库已经失守。",
+  "play.restart": "重新做一次决定",
+  "play.debugBanner": "管理员视角——隐藏真相与完整因果记录",
+  "play.trueThreat": "客观威胁",
+  "play.hiddenThreat": "宫城渗透",
+  "play.actualOutcome": "客观结果",
+  "play.unitLocation": "禁军最终位置",
+  "play.decisionRecord": "玩家决策记录",
+  "play.orderLifecycle": "命令生命周期",
+  "play.debugCaption":
+    "界面提交的是结构化人类决策；真正改变世界和皇帝认知的，是之后发生的传令、抵达、执行与回报事件。",
   "promotion.playerTitle": "宫廷档案渠道",
   "promotion.noReport": "尚未收到回报",
   "promotion.noReportCopy":

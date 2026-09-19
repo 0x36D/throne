@@ -17,4 +17,4 @@ ScheduledEvent batch
 
 All events at the earliest simulation timestamp are delivered to the scenario resolver as one batch. This prevents meaningful simultaneous inputs, such as contradictory orders, from being resolved by incidental array order.
 
-Actor cognition is accessed through one `DecisionPolicy` contract. A role can use a human policy during play, a Harness policy during autonomous runs, or a recorded policy during replay without changing the simulation rules.
+Actor cognition is accessed through one `DecisionPolicy` contract. A role can use a human policy during play, a Harness policy during autonomous runs, or a recorded policy during replay without changing the simulation rules. For a human turn, the scenario opens a decision and deliberately schedules no successor event. Submitting the validated player output schedules resolution at the paused simulation time; the UI never mutates world state directly.
