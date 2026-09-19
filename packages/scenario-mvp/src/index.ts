@@ -7,6 +7,7 @@ export * from "./contradictory-orders.ts";
 export * from "./decision-revision.ts";
 export * from "./loss-of-control.ts";
 export * from "./dynamic-promotion.ts";
+export * from "./player-decision.ts";
 
 export type BootstrapMessage = {
   readonly id: string;

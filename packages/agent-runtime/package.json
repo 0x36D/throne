@@ -3,7 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./policy": "./src/policy.ts"
+  },
   "dependencies": {
     "@deepseek-ai/dsh-sdk-client": "0.1.5-rc.2",
     "@throne/shared-types": "workspace:*"

@@ -92,6 +92,9 @@ importers:
 
   packages/scenario-mvp:
     dependencies:
+      '@throne/agent-runtime':
+        specifier: workspace:*
+        version: link:../agent-runtime
       '@throne/shared-types':
         specifier: workspace:*
         version: link:../shared-types
