@@ -5,5 +5,6 @@ export * from "./json.ts";
 export * from "./read-json.ts";
 export * from "./organizations.ts";
 export * from "./orders.ts";
+export * from "./offices.ts";
 export * from "./run.ts";
 export * from "./time.ts";

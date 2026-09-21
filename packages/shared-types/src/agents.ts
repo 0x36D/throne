@@ -53,6 +53,7 @@ export type ActorIdentity = {
 };
 
 export type OfficeHistoryEntry = {
+  readonly appointmentId?: string;
   readonly officeId: string;
   readonly startedAt: SimTime;
   readonly endedAt?: SimTime;

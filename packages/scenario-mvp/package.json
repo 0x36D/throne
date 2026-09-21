@@ -5,6 +5,7 @@
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
+    "zod": "^4.6.5",
     "@throne/agent-runtime": "workspace:*",
     "@throne/shared-types": "workspace:*",
     "@throne/sim-core": "workspace:*"
