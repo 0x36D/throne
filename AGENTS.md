@@ -1,29 +1,30 @@
 # AGENTS.md
 
-本文件约束所有在本仓库工作的编码代理。`docs/` 是唯一事实来源，代码服从文档。
+## 工作约定
 
-## 三条硬约束
+- 根因优先：修复前确认触发条件、数据流和现有校验为何没有拦住；问题可以先登记，根因随后补齐。
+- 禁止把失败、缺失或未知情况包装成正常结果。明确约定的默认语言、可选字段和格式兼容可以保留；错误应可定位，恢复不能伪造模拟结果。
+- 如果一个改动需要让其他开发者知道为什么这么做，或者可能影响其他开发者正在做的东西，就必须先在 [docs/issues](docs/issues/README.md) 登记。错字、样式微调、不改变行为的局部整理由提交说明交代即可。登记不等于逐项等待人工审批。
+- 不写大段代码注释；玩法、架构决策和复杂特殊处理一律写入文档。允许简短的局部说明和文档指针。
+- 不绕过事件调度、事务校验和事件溯源；角色只能提交决策，不能直接修改世界。
+- SPEC 核心原则冲突、范围扩大或尚未确定的玩法取舍需交回用户；日常实现自主推进。
 
-1. **根因优先。** 任何 BUG 必须先写清根因（触发条件、数据流、为什么现有校验没拦住），禁止只改表象或"先让它不报错"。根因未确认前不得提交修复。
-2. **禁止兜底。** 不允许静默降级，包括但不限于：
-   - `try/catch` 吞异常或只置布尔标记；
-   - 用 `??` / `||` / 默认值掩盖缺失数据；
-   - `switch` 的 `default` 静默放过未知输入；
-   - 宽松解析畸形数据（去围栏、扫描括号、类型强制转换）；
-   - 缺少凭据、指令或配置时回退到隐式默认值。
-   
-   未定义输入必须在边界**显式失败**（抛错并给出可定位信息）。
-3. **文档先行。** 改动前先在 [docs/issues](./docs/issues/README.md) 登记：现象、根因、影响面、是否涉及兜底、方案、验证方式，评估通过后才实现。
+## 阅读与维护
 
-## 工作流
+开始工作读本文件和 [STATUS.md](STATUS.md)，再按 [docs/README.md](docs/README.md) 查阅与任务相关的规范和活动事项。首次参与先读 SPEC、DESIGN 与 architecture/overview。历史归档不属于日常必读。
 
-1. 读 [docs/SPEC.md](./docs/SPEC.md)、[docs/DESIGN.md](./docs/DESIGN.md)、[docs/architecture/overview.md](./docs/architecture/overview.md)、[STATUS.md](./STATUS.md)。
-2. 在 `docs/issues/BUGS.md` 或 `docs/issues/FEATURES.md` 落盘条目（根因未明则状态保持"登记"）。
-3. 确认根因并评估方案（涉及架构边界时补 `docs/architecture/NNNN-*.md`）。
-4. 实现；不得绕过事件调度、事务校验与事件溯源。
-5. 跑验证命令，通过后在条目中记录结果并推进状态。
+已采纳且仍生效的架构决定保持在按需文档中；已解决问题的调查和验收记录移入归档。状态入口只保留当前事项，不累积流水账。
 
-## 验证命令
+## 代码约定
+
+- 纯 ESM，项目内导入带 `.ts` 后缀；保持 TypeScript 严格模式。
+- 数据保持 `readonly`，状态更新用展开式；跨边界用 `structuredClone`。
+- 模拟时间使用 `SimTime`；事件 payload 使用 `JsonObject` / `JsonValue`，必要字段在边界验证。
+- 事件类型采用 `namespace.action`。未知事件必须显式报错；有意只留审计记录的事件也要显式处理。
+- 测试与被测文件同目录。模拟改动验证实际后果和确定性重放，不能只比较两次结果相同。
+- AGENTS.md 和用户维护的 soul、灵感文档仅在用户明确授权时修改。
+
+## 提交前验证
 
 ```bash
 pnpm format:check
@@ -31,13 +32,3 @@ pnpm typecheck
 pnpm test
 pnpm build
 ```
-
-## 代码约定
-
-- 纯 ESM，导入带 `.ts` 后缀；TS 严格模式（`strict`、`noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`）。
-- 数据保持 `readonly`，状态更新用展开式；跨边界用 `structuredClone`。
-- 模拟时间只用 `SimTime`；事件 payload 收敛到 `JsonObject` / `JsonValue`。
-- 事件类型统一为 `namespace.action` 字符串。
-- 模拟规则只进 `sim-core` 与 `scenario-mvp`；agent 代码可返回结构化决策，但不得直接改写世界状态。
-- 不写代码注释，设计信息写入 `docs/`。
-- 测试与被测文件同目录，命名为 `*.test.ts`。

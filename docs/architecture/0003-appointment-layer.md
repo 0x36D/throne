@@ -1,126 +1,38 @@
-# ADR 0003: Appointment, offices, and derived authority
+# ADR 0003: 职位、任命与派生权威
 
-Status: proposed
+状态：已采纳最小切片，2026-09-21。来源：[PR #2](https://github.com/unryuu/throne/pull/2)，经项目所有者确认吸收设计意图。编号沿用提案，不预留未立项的财政实现。
 
-Reserved: ADR 0002 (resource and fiscal layer) is not yet written.
+## 规则
 
-## Context
+职位定义法定职责；任命记录人物何时、由谁、以何种依据主张职位。现任身份、结束记录和争议变化都来自事件，人物身份、既有记忆和任职历史不会因换职消失。
 
-Throne has no first-class office or appointment model. Positions exist only as:
+新场景从有效任命推导组织的正式指挥者，不同时维护一份可写的法定指挥名单。旧演示保持原有固定数据，暂不全量迁移。
 
-- `PersistentActor.officeHistory: OfficeHistoryEntry[]` (`packages/shared-types/src/agents.ts`),
-- the `appointment` value of `ControlRelationshipKind` (`packages/shared-types/src/organizations.ts`),
-- hand-authored `Organization.formalAuthorityIds` (for example `packages/scenario-mvp/src/loss-of-control.ts`).
+越权、超额任命允许进入模拟：无合法任命权标记为 irregular；职位超额时全部在任主张并存并标记 contested。认可是针对具体任命的显式事件，不抹掉其他人的主张。未知人物、职位、损坏数据与没有通信通路是不同问题，必须明确失败。
 
-There is no `Office` entity, no appointment operation, and no separation between the legal authority an office confers and the practical control an actor actually holds. This blocks historically central situations: a general promoted to chancellor who keeps command of the army through loyal subordinates; in-law (waiqi) power; contested appointments; officials who formally hold an office yet are not obeyed.
+本切片的法定权威视图只纳入被制度认可的有效任命；争议主张另行列出。主张者即使没有法定权威，仍可凭已有关系发令并获得服从。一个职位出现争议不意味着所有相关人的私人影响自动消失。
 
-SPEC requires that legal authority is not hard permission (section 6), that practical control is derived from relationships rather than stored as a single value (section 7), that identity and office history persist across cognition changes (section 10), and that all world changes are event-sourced and replayable without model calls (section 19).
+职位授予的合法权限与私人忠诚、任命恩义、实际资金关系分开。任命、免职不修改后者的强度，不凭升任财政职位生成资金支持。免职结束特定任命，不删除履历；越权免职记录为受争议的尝试，不自动终止对方任职。
 
-## Decision
+## 最小场景
 
-We introduce an office and appointment layer with four explicit choices.
+旧将军原任禁军统领。皇帝在同一批事件中结束旧军职、任命他为丞相，并明确任命新统领。原有下属对旧将军的私人忠诚和任命恩义保留。
 
-1. **Office powers are declared as relationship and power grants, not capability ids.** `OfficeDefinition.grants` names the control relationships and the controlled resources, channels, and commands the office confers. Practical authority therefore remains derivable through the existing relationship model instead of becoming a fixed action menu.
+新旧两人分别发出相反命令，经通信延迟同时抵达。下属以当前正式权威和既有多种关系作轻量决策，记录两个命令、决策、服从和实际移动。不能按人物姓名或职位变更直接指定胜者。测试改变关系后必须能改变选择。
 
-2. **`Organization.formalAuthorityIds` becomes derived, not authored.** The legal authority of an organization is computed from the offices currently in effect. Any hand-authored bootstrap data must reconcile with the derived value or fail loudly.
+皇帝只看到已发出的任命及后来收到的回报；管理员可比较任命、争议主张、关系证据、服从及位置。中文和英文均可查看。此切片是机制演示，不增加另一套玩家战役。
 
-3. **Legality is a recorded snapshot that later events may revise.** An appointment carries `basis` and `legality`. Subsequent `office.recognized` or `office.contested` events may change the assessment. Legality never acts as a hard gate; it influences expected obedience, reputation, and third-party cooperation as SPEC section 6 describes.
+## 实现边界
 
-4. **A position may have concurrent, contested claimants.** `capacity` is data. When it is exceeded, claimants coexist and `effectiveAuthority` arbitrates who can actually act. There is no last-writer-wins rule.
+共享层提供 OfficeDefinition、AppointmentRecord 和变更历史。规则属于 scenario-mvp；事件经过现有内核事务提交，重放只读取记录。正式职位可授予组织指挥或其他职位的任命权；本切片不实现财政账户、通路授予、任期届满、完整继承程序或动态生成能力。
 
-## Data contracts
+争议并存、认可、越权任命与免职由相同操作边界验证。若以后需要多机构互不承认的法律体系，再扩展认可主体；当前合法性标签是场景制度的判断，不代表所有人物的共同信念。
 
-Owned by `packages/shared-types`:
+## 验收
 
-```ts
-type OfficeGrant =
-  | { kind: "relationship"; relationship: ControlRelationshipKind; targetRef: string }
-  | { kind: "resource_control"; accountId: string }
-  | { kind: "channel_control"; channelId: string }
-  | { kind: "command"; organizationId: string; unitId?: string };
-
-type OfficeDefinition = {
-  id: string;
-  nameKey: string;
-  category: "civil" | "military" | "fiscal" | "censorate" | "palace" | "regional";
-  grants: readonly OfficeGrant[];
-  appointAuthority: readonly string[];
-  eligibility: readonly JsonObject[];
-  capacity: number;
-  fixedTerm?: SimTime;
-};
-
-type AppointmentRecord = {
-  id: string;
-  officeId: string;
-  incumbentId: string;
-  appointedById: string;
-  occurredAt: SimTime;
-  basis: "decree" | "procedure" | "self_claim";
-  legality: "legal" | "irregular" | "contested";
-  eventId: EventId;
-};
-```
-
-## Events
-
-Names follow the existing `namespace.action` convention and carry causal links:
-
-- `office.appointed`
-- `office.removed`
-- `office.tenure_ended`
-- `office.contested`
-- `office.recognized`
-
-Appointment is an operation, not a direct state write. It validates the attempt, commits the office event, and appends the relationship edges named by the office grants.
-
-## Derivation
-
-Two layers must stay separate:
-
-- **Legal layer.** `deriveFormalAuthority(state, organizationId)` returns the actors whose current offices grant command over the organization. Promotion removes the old office's edges and adds the new office's edges.
-- **Relational layer.** `ControlRelationship` edges (`personal_loyalty`, `informal_influence`, `appointment`, `funding`) and `ObedienceRecord` history are persistent facts. Office changes never add, remove, or reweight them.
-
-Practical control is not stored. It is computed on demand, generalizing `assessPracticalControl` (`packages/scenario-mvp/src/loss-of-control.ts`) to organizations, units, resource accounts, and channels. The divergence between the two layers is a first-class derived value available to the administrator view, never to the player-facing view.
-
-## Case study: general promoted to chancellor
-
-Initial state: a general holds a military office and has two subordinates who owe their offices to him (`appointment` edges) with high `personal_loyalty`.
-
-A single decision episode commits two causally linked events: `office.removed` for the military office, `office.appointed` for the chancellor office. Consequences:
-
-- `deriveFormalAuthority(army)` no longer contains the general and now contains the replacement commander.
-- The general's `personal_loyalty`, `appointment`, and (through the chancellor's fiscal grants) `funding` edges persist, so `derivePracticalControl(army)` may still rank him highest.
-- If the chancellor's grants include appointment authority over military offices, he can legally reinstall his old subordinates, reproducing his power network through procedure.
-
-Obedience is resolved only when a command arrives: the new commander's `formal_command` competes with the general's loyalty, patronage, and funding leverage. The loser's order is recorded as `ignored` or `countermanded`, reusing the contradictory-orders mechanism. No hard block is introduced.
-
-Relationship decay, if wanted, is driven by explicit events (for example a scheduled `relationship.decayed`), never by an implicit per-tick adjustment.
-
-## Consequences
-
-Positive:
-
-- "General promoted to chancellor still commands the army" emerges from structure rather than a label or a scripted event.
-- Legal authority and practical control become comparable, which is the project's central concern (SPEC sections 6 and 7).
-- Office history remains append-only, preserving identity continuity (SPEC section 10).
-
-Negative and risks:
-
-- Deriving `formalAuthorityIds` touches existing hand-authored scenario data and requires reconciliation.
-- Contested claimants force obedience evaluation and the administrator view to handle multiple simultaneous authorities.
-- The layer expands MVP scope and touches SPEC sections 2, 6, 7, 10, 14.1, and 19; it requires an explicit design decision before implementation.
-
-## Out of scope
-
-- Command cost and administrative effort expenditure (a separate decision).
-- Capability layer integration.
-- Resource and fiscal flows (ADR 0002, unwritten).
-
-## Verification
-
-- An appointment never mutates any `ControlRelationship.strength`.
-- Removing an incumbent never deletes office history.
-- Replay reproduces office and authority state without model calls.
-- An illegal transition (appointing into an over-capacity office, or by an actor without appointment authority) fails explicitly rather than silently.
-- A contested claim yields coexisting authorities, not a merge.
+- 换职后正式指挥权转移，既有私人关系与人物身份不变，旧军职履历仍可查。
+- 同时到达的冲突任命不依赖队列顺序；不采用后写覆盖前写。
+- 越权与超额任命被记录，未知引用显式失败；认可和免职保留历史。
+- 下属决策可随关系证据改变，命令经过传递和执行才影响位置。
+- 玩家在回报抵达前看不到实际服从、评分或隐藏关系。
+- 原始运行和重放相同，并独立断言具体后果。
