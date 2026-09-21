@@ -8,4 +8,4 @@ The playable capital-crisis scene stops at simulation time 10 with two conflicti
 
 Chinese is the default display language. `packages/localization` provides compile-time-matched Chinese and English catalogs, the web switch persists locally, and the CLI accepts `THRONE_LOCALE=en`. Simulation identifiers and records are kept language-neutral where practical.
 
-Next implementation slice: place one real DeepSeek-backed NPC decision inside the playable path, record its structured output, and prove that the resulting player session still replays without another model call.
+Current priority: address confirmed simulation reliability gaps, then implement the accepted office/appointment slice in [ADR 0003](docs/architecture/0003-appointment-layer.md). Real DeepSeek NPC integration follows afterward. Active work is indexed under [docs/issues](docs/issues/README.md); reading and archive rules are in [docs/README.md](docs/README.md).
