@@ -9,6 +9,36 @@ import { playerDecisionIds as ids } from "./player-decision.ts";
 export const npcEpisodeId = "decision:commander-competing-orders";
 export const npcCapabilities = ["obey_ruler", "follow_chancellor"] as const;
 
+export function commanderProfile() {
+  return {
+    identity: {
+      id: ids.commander,
+      name: "赵统领 / Commander Zhao",
+      role: "Imperial Guard commander",
+    },
+    officeHistory: [{ officeId: "office:guard-commander", startedAt: 0 }],
+    beliefs: [],
+    motivations: {
+      protectRuler: 0.8,
+      preserveUnit: 0.9,
+      avoidPunishment: 0.85,
+      maintainPatronSupport: 0.65,
+    },
+    relationships: [
+      { sourceId: ids.ruler, kind: "formal_command", strength: 1 },
+      { sourceId: ids.ruler, kind: "personal_loyalty", strength: 0.55 },
+      { sourceId: "actor:chancellor", kind: "funding", strength: 0.85 },
+      { sourceId: "actor:chancellor", kind: "appointment", strength: 0.7 },
+    ],
+    memories: [
+      {
+        experience:
+          "The chancellor secured the commander's appointment and previously paid delayed wages.",
+      },
+    ],
+  } as const;
+}
+
 export function commanderInput(
   state: PlayerDecisionState,
   runId: string,
@@ -36,12 +66,7 @@ export function commanderInput(
     decisionEpisodeId: npcEpisodeId,
     actorId: ids.commander,
     simulationTime: simTime(50),
-    identity: {
-      id: ids.commander,
-      name: "赵统领 / Commander Zhao",
-      role: "Imperial Guard commander",
-    },
-    officeHistory: [{ officeId: "office:guard-commander", startedAt: 0 }],
+    ...commanderProfile(),
     observations: [
       observation("npc:royal-order", ids.ruler, {
         command: order.choiceId,
@@ -60,25 +85,6 @@ export function commanderInput(
         claim:
           "Two palace entry seals are missing; infiltration is suspected, not confirmed.",
       }),
-    ],
-    beliefs: [],
-    motivations: {
-      protectRuler: 0.8,
-      preserveUnit: 0.9,
-      avoidPunishment: 0.85,
-      maintainPatronSupport: 0.65,
-    },
-    relationships: [
-      { sourceId: ids.ruler, kind: "formal_command", strength: 1 },
-      { sourceId: ids.ruler, kind: "personal_loyalty", strength: 0.55 },
-      { sourceId: "actor:chancellor", kind: "funding", strength: 0.85 },
-      { sourceId: "actor:chancellor", kind: "appointment", strength: 0.7 },
-    ],
-    memories: [
-      {
-        experience:
-          "The chancellor secured the commander's appointment and previously paid delayed wages.",
-      },
     ],
     availableCapabilities: npcCapabilities,
     outputLanguage,

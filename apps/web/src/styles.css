@@ -322,6 +322,16 @@ article.report {
 .live-play {
   padding-top: 24px;
 }
+
+.live-timeline ol {
+  list-style: none;
+  padding: 0;
+}
+
+.live-timeline .document {
+  border-left: 3px solid #a9854b;
+  padding-left: 14px;
+}
 .live-play pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

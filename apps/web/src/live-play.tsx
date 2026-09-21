@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Locale, Translator } from "@throne/localization";
-import type { PlayerChoiceId } from "@throne/scenario-mvp";
+import type { CrisisChoice, CrisisTimelineItem } from "@throne/scenario-mvp";
 import type { LiveSnapshot, SavedLiveRun } from "../server/live-service.ts";
 
 async function request<T>(path: string, body?: unknown): Promise<T> {
@@ -36,12 +36,20 @@ export function LivePlay({ locale, t }: { locale: Locale; t: Translator }) {
   }, []);
   useEffect(() => {
     if (snapshot?.status !== "running") return;
+    let cancelled = false;
     const timer = setInterval(() => {
       void request<LiveSnapshot>("/" + snapshot.id)
-        .then(setSnapshot)
-        .catch((e: Error) => setError(e.message));
+        .then((next) => {
+          if (!cancelled) setSnapshot(next);
+        })
+        .catch((e: Error) => {
+          if (!cancelled) setError(e.message);
+        });
     }, 2000);
-    return () => clearInterval(timer);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [snapshot?.id, snapshot?.status]);
 
   const perform = async (action: () => Promise<void>) => {
@@ -63,12 +71,15 @@ export function LivePlay({ locale, t }: { locale: Locale; t: Translator }) {
       setVerified(false);
       sessionStorage.setItem("throne.liveRun", next.id);
     });
-  const choose = (choice: PlayerChoiceId) =>
+  const choose = (choice: CrisisChoice) =>
     perform(async () => {
-      if (!snapshot) return;
+      if (!snapshot || snapshot.version !== 2) return;
       setSnapshot({ ...snapshot, status: "running" });
       setSnapshot(
-        await request<LiveSnapshot>(`/${snapshot.id}/choice`, { choice }),
+        await request<LiveSnapshot>(`/${snapshot.id}/choice`, {
+          choice,
+          decisionEpisodeId: snapshot.view.decisionEpisodeId,
+        }),
       );
     });
   const retry = () =>
@@ -78,9 +89,9 @@ export function LivePlay({ locale, t }: { locale: Locale; t: Translator }) {
       setSnapshot(await request<LiveSnapshot>(`/${snapshot.id}/retry`, {}));
     });
   const pending = busy || snapshot?.status === "running";
-  const report = snapshot?.view.observations.find(
-    (o) => o.sourceType === "commander_report",
-  );
+  const report = snapshot?.view.observations
+    .filter((o) => o.sourceType === "commander_report")
+    .at(-1);
   return (
     <div className="live-play">
       <p className="command-copy">{t("live.intro")}</p>
@@ -103,35 +114,58 @@ export function LivePlay({ locale, t }: { locale: Locale; t: Translator }) {
           <p className="panel-label">
             {t("live.status")} · {t(`live.${snapshot.status}`)}
           </p>
-          {snapshot.status === "waiting" ? (
+          {snapshot.version === 2 ? (
+            <section className="live-timeline" aria-label={t("live.timeline")}>
+              <h3>{t("live.timeline")}</h3>
+              <ol className="document-list">
+                {snapshot.view.timeline.map((item) => (
+                  <li className="document" key={item.id}>
+                    <p className="panel-label">
+                      {t("common.time", { time: item.time })} ·{" "}
+                      {sourceName(item.sourceId, t)}
+                    </p>
+                    <p>{timelineText(item, t)}</p>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
+          {snapshot.status === "waiting" && snapshot.version === 2 ? (
             <div className="playable-layout">
-              <div className="document-list">
-                <article className="document">
-                  <h3>{t("play.eastReportTitle")}</h3>
-                  <p>{t("play.eastReportCopy")}</p>
-                </article>
-                <article className="document">
-                  <h3>{t("play.palaceReportTitle")}</h3>
-                  <p>{t("play.palaceReportCopy")}</p>
-                </article>
+              <div>
+                <h3>{t("live.round", { round: snapshot.view.round })}</h3>
+                <p>
+                  {t(
+                    snapshot.view.round === 1
+                      ? "live.firstDecision"
+                      : "live.secondDecision",
+                  )}
+                </p>
               </div>
               <div className="player-choice-grid">
-                <button
-                  disabled={pending}
-                  onClick={() => void choose("hold_imperial_palace")}
-                >
-                  <span>{t("play.holdTitle")}</span>
-                  <small>{t("play.holdCopy")}</small>
-                  <strong>{t("play.issue")}</strong>
-                </button>
-                <button
-                  disabled={pending}
-                  onClick={() => void choose("move_to_east_gate")}
-                >
-                  <span>{t("play.eastTitle")}</span>
-                  <small>{t("play.eastCopy")}</small>
-                  <strong>{t("play.issue")}</strong>
-                </button>
+                {snapshot.view.choices.map((choice) => (
+                  <button
+                    key={choice.id}
+                    disabled={pending}
+                    onClick={() => void choose(choice.id)}
+                  >
+                    <span>
+                      {t(
+                        choice.id === "maintain_deployment"
+                          ? "live.maintain"
+                          : choice.id === "hold_imperial_palace"
+                            ? "play.holdTitle"
+                            : "play.eastTitle",
+                      )}
+                    </span>
+                    <small>
+                      {t("live.orderTarget", {
+                        location: locationName(choice.targetLocationId, t),
+                      })}
+                    </small>
+                    <strong>{t("play.issue")}</strong>
+                  </button>
+                ))}
               </div>
             </div>
           ) : null}
@@ -152,16 +186,22 @@ export function LivePlay({ locale, t }: { locale: Locale; t: Translator }) {
               <p className="panel-label">
                 {t("common.time", { time: report.observedAt })}
               </p>
-              <h3>
-                {t(report.payload.obeyed ? "live.obeyed" : "live.refused")}
-              </h3>
-              <p>
-                {t(
-                  snapshot.view.knownOutcome === "palace_secured"
-                    ? "play.securedTitle"
-                    : "play.breachedTitle",
-                )}
-              </p>
+              {snapshot.version === 1 ? (
+                <>
+                  <h3>
+                    {t(report.payload.obeyed ? "live.obeyed" : "live.refused")}
+                  </h3>
+                  <p>
+                    {t(
+                      snapshot.view.knownOutcome === "palace_secured"
+                        ? "play.securedTitle"
+                        : "play.breachedTitle",
+                    )}
+                  </p>
+                </>
+              ) : (
+                <h3>{t("live.finished")}</h3>
+              )}
               <p>
                 {t("live.deployment")}{" "}
                 {String(report.payload.targetLocationId) ===
@@ -205,22 +245,35 @@ export function LivePlay({ locale, t }: { locale: Locale; t: Translator }) {
           {review ? (
             <div className="debug-panel">
               <p className="debug-banner">{t("live.reviewTitle")}</p>
-              <p>{review.run.state.npcDecision?.output.reasoningSummary}</p>
+              {(review.version === 2
+                ? review.run.state.decisions
+                : review.run.state.npcDecision
+                  ? [review.run.state.npcDecision]
+                  : []
+              ).map((decision, index) => (
+                <section key={decision.input.decisionEpisodeId}>
+                  <h3>{t("live.decisionNumber", { round: index + 1 })}</h3>
+                  <p>
+                    {decision.output.reasoningSummary ?? t("live.noSummary")}
+                  </p>
+                  <details>
+                    <summary>{t("live.context")}</summary>
+                    <pre>{JSON.stringify(decision.input, null, 2)}</pre>
+                  </details>
+                  <details>
+                    <summary>{t("live.record")}</summary>
+                    <pre>{JSON.stringify(decision.output, null, 2)}</pre>
+                  </details>
+                </section>
+              ))}
               <p className="panel-label">
                 {t("live.saved")} runs/{snapshot.id}.json
               </p>
-              <details>
-                <summary>{t("live.context")}</summary>
-                <pre>
-                  {JSON.stringify(review.run.state.npcDecision?.input, null, 2)}
-                </pre>
-              </details>
               <details>
                 <summary>{t("live.record")}</summary>
                 <pre>
                   {JSON.stringify(
                     {
-                      decision: review.run.state.npcDecision?.output,
                       calls: review.calls,
                     },
                     null,
@@ -234,4 +287,60 @@ export function LivePlay({ locale, t }: { locale: Locale; t: Translator }) {
       ) : null}
     </div>
   );
+}
+
+function locationName(id: string, t: Translator): string {
+  switch (id) {
+    case "location:imperial-palace":
+      return t("token.imperial-palace");
+    case "location:east-gate":
+      return t("token.east-gate");
+    case "location:military-pay-office":
+      return t("token.military-pay-office");
+    default:
+      return id;
+  }
+}
+function sourceName(id: string, t: Translator): string {
+  switch (id) {
+    case "actor:ruler":
+      return t("live.sourceRuler");
+    case "actor:guard-commander":
+      return t("live.sourceCommander");
+    case "actor:east-gate-scout":
+      return t("live.sourceScout");
+    case "actor:palace-inspector":
+      return t("live.sourceInspector");
+    default:
+      return id;
+  }
+}
+function timelineText(item: CrisisTimelineItem, t: Translator): string {
+  if (item.kind !== "observation")
+    return t(item.kind === "decree" ? "live.decreeIssued" : "live.decreeSent", {
+      round: Number(item.payload.round),
+      location: locationName(String(item.payload.targetLocationId), t),
+    });
+  switch (item.payload.finding) {
+    case "armed_movement":
+      return t("live.initialEast");
+    case "seals_missing":
+      return t("live.initialPalace");
+    case "east_warehouse_alarm":
+      return t("live.eastAlarm");
+    case "deployment":
+      return `${t(item.payload.obeyed ? "live.obeyed" : "live.refused")} ${t("live.deployment")} ${locationName(String(item.payload.targetLocationId), t)}`;
+    case "palace_result":
+      return t(
+        item.payload.protected ? "play.securedTitle" : "play.breachedTitle",
+      );
+    case "warehouse_result":
+      return t(
+        item.payload.protected
+          ? "live.warehouseProtected"
+          : "live.warehouseLost",
+      );
+    default:
+      return JSON.stringify(item.payload);
+  }
 }

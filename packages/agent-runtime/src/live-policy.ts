@@ -13,6 +13,7 @@ import {
 import type { DecisionPolicy } from "./policy.ts";
 
 export type LiveCallTrace = {
+  readonly decisionEpisodeId: string;
   readonly requestedProvider: string;
   readonly requestedModel: string;
   readonly returnedProvider: string | null;
@@ -78,6 +79,7 @@ export function createLivePolicy(
           "Use only the supplied actor-visible evidence. Reports are claims, not objective truth.",
           "Weigh military risk, formal duty, personal survival, loyalty, wages and patronage. You may obey either issuer; neither choice is preselected.",
           "The two capabilities are obey_ruler (deploy to the target in the royal order) and follow_chancellor (deploy to the military pay office).",
+          "Use the latest received royal order for this episode. Earlier orders and your previous decisions are history, not a command to repeat them. Consider your actual past actions alongside the new evidence.",
           "Both capabilities take an empty parameters object. You cannot split the unit in this episode.",
           "Return only a JSON object: {selectedIntent:{goal:string,capabilityId:string,parameters:{}},reasoningSummary:string,confidence:number}.",
           "reasoningSummary is a brief decision justification (at most three sentences), not a chain of thought.",
@@ -109,6 +111,7 @@ export function createLivePolicy(
       });
       let timer: ReturnType<typeof setTimeout> | undefined;
       const base = {
+        decisionEpisodeId: input.decisionEpisodeId,
         requestedProvider: "deepseek-official",
         requestedModel: "deepseek-flash",
         returnedProvider: null,

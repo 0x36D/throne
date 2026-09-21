@@ -9,6 +9,7 @@
 - [architecture](architecture/overview.md)：架构与仍生效的决定；任命机制见 ADR 0003。
 - [providers](providers.md)：接入模型时查阅。
 - [真实 NPC 接入](architecture/0004-live-npc.md)：本地服务、调用边界、失败恢复与持久回放。
+- [连续短局](architecture/0005-continuous-crisis.md)：两次决策、命令历史、人物记忆与御前时间线。
 - [issues](issues/README.md)：当前缺陷和功能；小型整理用提交说明交代。
 
 事后追溯：`issues/archive/`、Git 历史和已关闭 PR。保留调查、取舍和验证结果，不要求日常重读。

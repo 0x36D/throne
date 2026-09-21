@@ -8,36 +8,44 @@ import {
 import type { DecisionPolicy } from "@throne/agent-runtime/policy";
 import { replay } from "@throne/sim-core";
 import {
-  startPlayerDecisionSession,
+  startContinuousCrisisSession,
+  continuousCrisisInitialState,
+  reduceContinuousCrisisState,
   playerDecisionInitialState,
   reducePlayerDecisionState,
-  type PlayerChoiceId,
   type PlayerDecisionRun,
-  type PlayerDecisionSession,
+  type ContinuousCrisisRun,
+  type ContinuousCrisisSession,
+  type CrisisChoice,
 } from "@throne/scenario-mvp";
 import type { Locale } from "@throne/localization";
 
-export type LiveSnapshot = {
+type SnapshotBase = {
   id: string;
   status: "waiting" | "running" | "failed" | "complete";
-  view: PlayerDecisionSession["rulerView"];
   error?: string;
 };
+export type LiveSnapshot = SnapshotBase &
+  (
+    | { version: 1; view: PlayerDecisionRun["rulerViewFinal"] }
+    | { version: 2; view: ContinuousCrisisRun["rulerViewFinal"] }
+  );
 export type SavedLiveRun = {
-  version: 1;
   id: string;
   locale: Locale;
   calls: LiveCallTrace[];
-  run: PlayerDecisionRun;
-};
+} & (
+  | { version: 1; run: PlayerDecisionRun }
+  | { version: 2; run: ContinuousCrisisRun }
+);
 type Entry = {
   id: string;
   locale: Locale;
-  session: PlayerDecisionSession;
+  session: ContinuousCrisisSession;
   calls: LiveCallTrace[];
   status: LiveSnapshot["status"];
-  choice?: PlayerChoiceId;
-  run?: PlayerDecisionRun;
+  submissions: Map<string, CrisisChoice>;
+  run?: ContinuousCrisisRun;
   error?: string;
   pending?: Promise<LiveSnapshot>;
 };
@@ -60,12 +68,19 @@ export class LiveService {
       );
     const id = randomUUID();
     const calls: LiveCallTrace[] = [];
-    const session = await startPlayerDecisionSession({
+    const session = await startContinuousCrisisSession({
       runId: id,
       outputLanguage: locale,
       npcPolicy: this.policyFactory((trace) => calls.push(trace)),
     });
-    const entry: Entry = { id, locale, session, calls, status: "waiting" };
+    const entry: Entry = {
+      id,
+      locale,
+      session,
+      calls,
+      status: "waiting",
+      submissions: new Map(),
+    };
     this.entries.set(id, entry);
     return this.snapshot(entry);
   }
@@ -74,21 +89,39 @@ export class LiveService {
     const entry = this.entries.get(id);
     if (entry) return this.snapshot(entry);
     const saved = await this.review(id);
-    return { id, status: "complete", view: saved.run.rulerViewFinal };
+    return saved.version === 1
+      ? { id, status: "complete", version: 1, view: saved.run.rulerViewFinal }
+      : { id, status: "complete", version: 2, view: saved.run.rulerViewFinal };
   }
 
-  async choose(id: string, choice: PlayerChoiceId): Promise<LiveSnapshot> {
+  async choose(
+    id: string,
+    choice: CrisisChoice,
+    decisionEpisodeId: string,
+  ): Promise<LiveSnapshot> {
     const entry = this.required(id);
-    if (choice !== "hold_imperial_palace" && choice !== "move_to_east_gate")
+    if (
+      choice !== "hold_imperial_palace" &&
+      choice !== "move_to_east_gate" &&
+      choice !== "maintain_deployment"
+    )
       throw new Error("Invalid player choice");
-    if (entry.choice && entry.choice !== choice)
+    const previous = entry.submissions.get(decisionEpisodeId);
+    if (previous && previous !== choice)
       throw new Error("The original decree cannot be changed on retry");
-    if (entry.pending) return entry.pending;
-    if (entry.status === "complete") return this.snapshot(entry);
-    if (entry.status === "failed")
-      throw new Error("Use retry to resume the paused decision");
-    entry.choice = choice;
-    return this.execute(entry, () => entry.session.choose(choice));
+    if (previous) return entry.pending ?? this.snapshot(entry);
+    if (
+      entry.pending ||
+      entry.status !== "waiting" ||
+      entry.session.rulerView.decisionEpisodeId !== decisionEpisodeId
+    )
+      throw new Error("This player episode is not open");
+    if (!entry.session.rulerView.choices.some((c) => c.id === choice))
+      throw new Error("Invalid player choice for this episode");
+    entry.submissions.set(decisionEpisodeId, choice);
+    return this.execute(entry, () =>
+      entry.session.choose(decisionEpisodeId, choice),
+    );
   }
 
   async retry(id: string): Promise<LiveSnapshot> {
@@ -108,7 +141,7 @@ export class LiveService {
       await readFile(join(this.root, "runs", `${id}.json`), "utf8"),
     ) as SavedLiveRun;
     if (
-      saved.version !== 1 ||
+      (saved.version !== 1 && saved.version !== 2) ||
       saved.id !== id ||
       !Array.isArray(saved.run?.records)
     )
@@ -118,11 +151,18 @@ export class LiveService {
 
   async replay(id: string) {
     const saved = await this.review(id);
-    const state = replay(
-      playerDecisionInitialState,
-      saved.run.records,
-      reducePlayerDecisionState,
-    );
+    const state =
+      saved.version === 1
+        ? replay(
+            playerDecisionInitialState,
+            saved.run.records,
+            reducePlayerDecisionState,
+          )
+        : replay(
+            continuousCrisisInitialState,
+            saved.run.records,
+            reduceContinuousCrisisState,
+          );
     if (JSON.stringify(state) !== JSON.stringify(saved.run.state))
       throw new Error("Replay differs from saved state");
     return {
@@ -135,15 +175,20 @@ export class LiveService {
 
   private execute(
     entry: Entry,
-    run: () => Promise<PlayerDecisionRun>,
+    run: () => Promise<void>,
   ): Promise<LiveSnapshot> {
     entry.status = "running";
     delete entry.error;
     entry.pending = (async () => {
       try {
-        entry.run = await run();
+        await run();
+        if (!entry.session.complete) {
+          entry.status = "waiting";
+          return this.snapshot(entry);
+        }
+        entry.run = await entry.session.result();
         const saved: SavedLiveRun = {
-          version: 1,
+          version: 2,
           id: entry.id,
           locale: entry.locale,
           calls: entry.calls,
@@ -176,6 +221,7 @@ export class LiveService {
   private snapshot(entry: Entry): LiveSnapshot {
     return structuredClone({
       id: entry.id,
+      version: 2,
       status: entry.status,
       view:
         entry.status === "complete" && entry.run

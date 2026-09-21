@@ -40,10 +40,16 @@ export function livePlugin(root: string): Plugin {
             else if (
               id &&
               action === "choice" &&
+              typeof body.decisionEpisodeId === "string" &&
               (body.choice === "hold_imperial_palace" ||
-                body.choice === "move_to_east_gate")
+                body.choice === "move_to_east_gate" ||
+                body.choice === "maintain_deployment")
             )
-              result = await service.choose(id, body.choice);
+              result = await service.choose(
+                id,
+                body.choice,
+                body.decisionEpisodeId,
+              );
             else if (id && action === "retry") result = await service.retry(id);
             else throw new Error("Invalid live request");
           } else if (req.method === "GET" && id) {

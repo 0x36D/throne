@@ -1,6 +1,8 @@
 # 当前功能
 
-当前无已开工功能。FEAT-0001 已完成，见 [归档](archive/live-npc.md) 与 [首次实玩](archive/live-playtest-2026-09-21.md)。下一切片候选是连续决策及多个局势的行为验证，尚未开工。
+当前无已开工功能。FEAT-0005 已完成：[连续决策短局及两局实玩](archive/continuous-crisis.md)。现行规则见 [ADR 0005](../architecture/0005-continuous-crisis.md)。
+
+FEAT-0001 已完成，见 [归档](archive/live-npc.md) 与 [首次实玩](archive/live-playtest-2026-09-21.md)。
 
 FEAT-0004 已完成，结果见 [归档](archive/appointments.md)；现行规则仍在 [ADR 0003](../architecture/0003-appointment-layer.md)，开发任命机制时按需读取。
 

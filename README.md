@@ -19,7 +19,7 @@ pnpm dev
 
 ## Runtime shape
 
-For a real model round, run `pnpm dev`, open the local page, and choose **DeepSeek / 真实 NPC**. The local service reads `DEEPSEEK_API_KEY` or the single key in `secret/deepseek.txt`. Starting a scene is free; issuing a decree calls the official model with thinking enabled. Errors pause the decision and offer an explicit retry. Completed records stay under gitignored `runs/`; post-run review and replay do not make model calls. This route requires the local development server, not just the static build.
+For a real two-decision short game, run `pnpm dev`, open the local page, and choose **DeepSeek / 真实 NPC**. The local service reads `DEEPSEEK_API_KEY` or the single key in `secret/deepseek.txt`. Starting a scene makes no model call; each decree calls the official model with thinking enabled. The commander keeps his prior experiences, while the ruler sees a timeline of received reports and their own orders. Errors pause the current decision and offer an explicit retry. Completed records stay under gitignored `runs/`; whole-game review and replay do not make model calls. Unfinished games are in memory and are lost on server restart. This route requires the local development server, not just the static build.
 
 The web app also includes **Offices and command / 职位与任命**: a general becomes chancellor, a successor receives legal command, and the guard weighs competing orders against its existing loyalties. Ruler and administrator views separate reported outcomes from private relationships. Contested appointments and recognition are implemented in the rule API and tested, but do not yet have a player-facing appointment editor.
 

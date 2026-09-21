@@ -1,8 +1,37 @@
 export const en = {
-  "live.title": "Give an order to a DeepSeek commander",
+  "live.title": "Two decrees, one commander",
   "live.short": "Live NPC",
   "live.intro":
-    "You are the ruler. Commander Zhao is played by official DeepSeek with thinking enabled. Issuing a decree makes a real API call; he decides how to respond from his own information and relationships.",
+    "You are the ruler in a two-decision crisis. Official DeepSeek plays Commander Zhao with thinking enabled, keeping his prior experiences. Each decree makes one real API call. His private decisions are available only after the whole game ends. Unfinished games are lost if the server restarts.",
+  "live.timeline": "What has reached your court",
+  "live.round": "Decree {round} of 2",
+  "live.firstDecision":
+    "Reports disagree. Choose where to send the guard; the commander must receive and consider your decree.",
+  "live.secondDecision":
+    "You have received the first reply and new intelligence. Maintain the reported deployment or issue a new deployment order. Neither erases what already happened.",
+  "live.maintain": "Maintain the reported deployment",
+  "live.orderTarget": "Order the guard to hold {location}.",
+  "live.decreeIssued": "Decree {round} issued: deploy to {location}.",
+  "live.decreeSent":
+    "Messenger carrying decree {round} departed for the commander. The decree requests {location}; no execution is confirmed yet.",
+  "live.eastAlarm":
+    "A new scout report describes armed men unloading ladders beside the East Gate warehouses. An attack appears imminent; their numbers remain uncertain.",
+  "live.warehouseProtected":
+    "The scout reports that the guard repelled the attack on the East Gate warehouses.",
+  "live.warehouseLost":
+    "The scout reports that the East Gate warehouses were raided without the guard present.",
+  "live.sourceRuler": "Your court",
+  "live.sourceCommander": "Commander Zhao's report",
+  "live.sourceScout": "East Gate scout",
+  "live.sourceInspector": "Palace inspector",
+  "live.initialEast":
+    "Armed movement outside the East Gate; destination unconfirmed.",
+  "live.initialPalace":
+    "Two palace entry seals are missing. Infiltration is suspected but not confirmed.",
+  "live.finished":
+    "The short game is over. Both orders and their consequences remain in the timeline.",
+  "live.decisionNumber": "Commander decision {round}",
+  "live.noSummary": "The model supplied no brief justification.",
   "live.start": "Start a live round",
   "live.new": "Start another round",
   "live.status": "Session",
@@ -11,7 +40,7 @@ export const en = {
   "live.failed": "Paused after a failure",
   "live.complete": "Report received",
   "live.wait":
-    "Your decree has reached the commander. Waiting for his decision…",
+    "Your decree is being delivered or considered by the commander. Waiting for his reply…",
   "live.retry": "Retry the paused decision (keep the same decree)",
   "live.obeyed": "The commander followed your decree.",
   "live.refused": "The commander followed the chancellor's competing command.",
@@ -454,10 +483,34 @@ export const en = {
 export type MessageKey = keyof typeof en;
 
 export const zhCN: Record<MessageKey, string> = {
-  "live.title": "给 DeepSeek 扮演的统领下一道命令",
+  "live.title": "两道圣旨，同一位统领",
   "live.short": "真实 NPC",
   "live.intro":
-    "你扮演皇帝，赵统领由开启思考模式的官方 DeepSeek 扮演。颁布圣旨后会实际调用 API；他会根据自己的情报、关系和处境决定如何回应。",
+    "你扮演皇帝，在一场危机中作出两次决策。赵统领由开启思考模式的官方 DeepSeek 扮演，并保留前一轮经历。每道圣旨会实际调用一次 API；整局结束后才能查看他的私人决定。未结束的局会在服务重启后丢失。",
+  "live.timeline": "御前见闻与命令",
+  "live.round": "第 {round} / 2 道圣旨",
+  "live.firstDecision":
+    "各方情报尚未得到核实。选择禁军的去向，圣旨送达后，统领还会自行权衡。",
+  "live.secondDecision":
+    "第一轮回报和新情报都已送到。你可以维持回报中的驻地，也可以另发调令；已经发生的事情不会因此撤销。",
+  "live.maintain": "维持回报中的部署",
+  "live.orderTarget": "命禁军驻守{location}。",
+  "live.decreeIssued": "第 {round} 道圣旨已颁布：命禁军前往{location}。",
+  "live.decreeSent":
+    "携第 {round} 道圣旨的信使已经出发，命令目标为{location}；尚不能确认执行情况。",
+  "live.eastAlarm":
+    "新到的斥候报告称：有人在东门仓场附近卸下云梯，似乎即将进攻，人数仍不确定。",
+  "live.warehouseProtected": "斥候回报：禁军击退了东门仓场的袭击。",
+  "live.warehouseLost": "斥候回报：禁军不在场，东门仓场遭到劫掠。",
+  "live.sourceRuler": "御前",
+  "live.sourceCommander": "赵统领回报",
+  "live.sourceScout": "东门斥候",
+  "live.sourceInspector": "宫城巡检",
+  "live.initialEast": "东门外发现武装调动，去向尚未确认。",
+  "live.initialPalace": "两枚宫门通行官印失踪，怀疑有人试图潜入，但尚未证实。",
+  "live.finished": "短局结束。两道命令及其后果都保留在上方记录中。",
+  "live.decisionNumber": "统领的第 {round} 次决定",
+  "live.noSummary": "模型没有提供简短理由。",
   "live.start": "开始一轮真实试局",
   "live.new": "开始新的一局",
   "live.status": "当前状态",
@@ -465,7 +518,7 @@ export const zhCN: Record<MessageKey, string> = {
   "live.running": "统领正在决策",
   "live.failed": "发生错误，模拟已暂停",
   "live.complete": "已收到回报",
-  "live.wait": "圣旨已抵达赵统领手中，正在等待他的决定……",
+  "live.wait": "圣旨正在传递，或已进入统领的决策流程。等待回报中……",
   "live.retry": "重试暂停的决策（保留原圣旨）",
   "live.obeyed": "统领执行了你的圣旨。",
   "live.refused": "统领执行了丞相的相反命令。",

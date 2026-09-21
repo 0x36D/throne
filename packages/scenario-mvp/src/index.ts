@@ -8,6 +8,7 @@ export * from "./decision-revision.ts";
 export * from "./loss-of-control.ts";
 export * from "./dynamic-promotion.ts";
 export * from "./player-decision.ts";
+export * from "./continuous-crisis.ts";
 export * from "./appointments.ts";
 export * from "./appointment-scenario.ts";
 
