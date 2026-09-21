@@ -1,3 +1,4 @@
+import { readStringArray as asStringArray } from "@throne/shared-types";
 import {
   addSimTime,
   simTime,
@@ -413,7 +414,9 @@ export const falseReportModel: DomainModel<FalseReportState> = {
       case "belief.contradiction_noted":
         return noteContradiction(state, event);
       default:
-        return state;
+        throw new Error(
+          `Unhandled domain event ${event.eventType} (${event.id})`,
+        );
     }
   },
 
@@ -724,11 +727,6 @@ function asObject(value: JsonValue | undefined): JsonObject {
     throw new TypeError("Expected a JSON object");
   }
   return value as JsonObject;
-}
-
-function asStringArray(value: JsonValue | undefined): string[] {
-  if (!Array.isArray(value)) throw new TypeError("Expected a JSON array");
-  return value.map(String);
 }
 
 function claimAsJson(claim: ReportClaim): JsonObject {

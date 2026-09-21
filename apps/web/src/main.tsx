@@ -42,6 +42,7 @@ import {
 } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
+import { RunFailure, reportRunError } from "./run-failure.tsx";
 
 type ScenarioKey =
   "play" | "promotion" | "control" | "revision" | "conflict" | "partial";
@@ -68,7 +69,7 @@ function App() {
   const [playerSession, setPlayerSession] = useState<PlayerDecisionSession>();
   const [playerRun, setPlayerRun] = useState<PlayerDecisionRun>();
   const [playerResolving, setPlayerResolving] = useState(false);
-  const [playerError, setPlayerError] = useState(false);
+  const [playerError, setPlayerError] = useState<Error>();
   const [playerSessionNumber, setPlayerSessionNumber] = useState(1);
   const [scenario, setScenario] = useState<ScenarioKey>("play");
   const [view, setView] = useState<"ruler" | "debug">("ruler");
@@ -84,14 +85,16 @@ function App() {
         runId: "web-dynamic-promotion",
         outputLanguage: locale,
       }),
-    ]).then(([partial, conflict, revision, control, promotion]) => {
-      setPartialRun(partial);
-      setConflictRun(conflict);
-      setRevisionRun(revision);
-      setControlRun(control);
-      setPromotionRun(promotion);
-    });
-  }, []);
+    ])
+      .then(([partial, conflict, revision, control, promotion]) => {
+        setPartialRun(partial);
+        setConflictRun(conflict);
+        setRevisionRun(revision);
+        setControlRun(control);
+        setPromotionRun(promotion);
+      })
+      .catch((error: unknown) => setPlayerError(reportRunError(error)));
+  }, [playerSessionNumber]);
 
   useEffect(() => {
     let active = true;
@@ -102,8 +105,8 @@ function App() {
       .then((session) => {
         if (active) setPlayerSession(session);
       })
-      .catch(() => {
-        if (active) setPlayerError(true);
+      .catch((error: unknown) => {
+        if (active) setPlayerError(reportRunError(error));
       });
     return () => {
       active = false;
@@ -123,11 +126,11 @@ function App() {
   const submitPlayerChoice = async (choiceId: PlayerChoiceId) => {
     if (!playerSession || playerRun || playerResolving) return;
     setPlayerResolving(true);
-    setPlayerError(false);
+    setPlayerError(undefined);
     try {
       setPlayerRun(await playerSession.choose(choiceId));
-    } catch {
-      setPlayerError(true);
+    } catch (error) {
+      setPlayerError(reportRunError(error));
     } finally {
       setPlayerResolving(false);
     }
@@ -135,7 +138,7 @@ function App() {
   const restartPlayerScenario = () => {
     setPlayerSession(undefined);
     setPlayerRun(undefined);
-    setPlayerError(false);
+    setPlayerError(undefined);
     setPlayerResolving(false);
     setView("ruler");
     setPlayerSessionNumber((value) => value + 1);
@@ -284,12 +287,18 @@ function App() {
             </div>
           </div>
 
-          {!partialRun ||
-          !conflictRun ||
-          !revisionRun ||
-          !controlRun ||
-          !promotionRun ||
-          !playerSession ? (
+          {playerError ? (
+            <RunFailure
+              error={playerError}
+              t={t}
+              onRestart={restartPlayerScenario}
+            />
+          ) : !partialRun ||
+            !conflictRun ||
+            !revisionRun ||
+            !controlRun ||
+            !promotionRun ||
+            !playerSession ? (
             <p className="loading">{t("app.loading")}</p>
           ) : playing ? (
             view === "ruler" ? (
@@ -297,7 +306,6 @@ function App() {
                 session={playerSession}
                 run={playerRun}
                 resolving={playerResolving}
-                failed={playerError}
                 onChoose={submitPlayerChoice}
                 onRestart={restartPlayerScenario}
               />
@@ -453,14 +461,12 @@ function PlayableRulerView({
   session,
   run,
   resolving,
-  failed,
   onChoose,
   onRestart,
 }: {
   session: PlayerDecisionSession;
   run: PlayerDecisionRun | undefined;
   resolving: boolean;
-  failed: boolean;
   onChoose(choiceId: PlayerChoiceId): void;
   onRestart(): void;
 }) {
@@ -527,7 +533,6 @@ function PlayableRulerView({
                 </strong>
               </button>
             </div>
-            {failed ? <p className="play-error">{t("play.error")}</p> : null}
           </>
         ) : (
           <>

@@ -1,4 +1,8 @@
 import {
+  readStringArray as stringArray,
+  readJsonObject as objectValue,
+} from "@throne/shared-types";
+import {
   actorDecisionOutputSchema,
   simTime,
   type ActorDecisionInput,
@@ -33,6 +37,7 @@ export type StrategicArtifact = {
   readonly holderId?: string;
   readonly subjectRefs: readonly string[];
   readonly disclosedToIds: readonly string[];
+  readonly disposition?: "concealed";
 };
 
 export type CommunicationChannel = {
@@ -208,6 +213,22 @@ export const dynamicPromotionInitialState: DynamicPromotionState = {
         promotionHistory: [],
       },
     },
+    [ids.chancellor]: {
+      identity: {
+        id: ids.chancellor,
+        displayNameKey: "actor.chancellor",
+        background: {},
+      },
+      officeHistory: [{ officeId: "office:chancellor", startedAt: simTime(0) }],
+      motivations: {},
+      memories: [],
+      beliefs: [],
+      cognition: {
+        tier: "lightweight",
+        policyId: "heuristic:chancellor",
+        promotionHistory: [],
+      },
+    },
   },
   artifacts: {
     [ids.ledger]: {
@@ -223,7 +244,7 @@ export const dynamicPromotionInitialState: DynamicPromotionState = {
       id: ids.channel,
       kind: "sealed_palace_courier",
       controllerId: ids.clerk,
-      reachableActorIds: [ids.ruler],
+      reachableActorIds: [ids.ruler, ids.chancellor],
     },
   },
   relationships: [
@@ -235,7 +256,11 @@ export const dynamicPromotionInitialState: DynamicPromotionState = {
     },
   ],
   observations: {},
-  actorObservationIds: { [ids.clerk]: [], [ids.ruler]: [] },
+  actorObservationIds: {
+    [ids.clerk]: [],
+    [ids.ruler]: [],
+    [ids.chancellor]: [],
+  },
   promotionSignals: {},
   decisionEpisodes: {},
   decisionOutputs: {},
@@ -439,28 +464,32 @@ export function createDynamicPromotionModel(
 
           case "operation.execute_intent": {
             const intent = getIntent(state, String(event.payload.intentId));
-            if (intent.operationTemplate === "send_sealed_evidence_to_ruler") {
+            if (intent.operationTemplate !== "conceal_evidence") {
+              const recipientId =
+                intent.operationTemplate === "send_sealed_evidence_to_ruler"
+                  ? ids.ruler
+                  : ids.chancellor;
               const channel = getChannel(state, ids.channel);
-              if (!channel.reachableActorIds.includes(ids.ruler)) {
-                throw new Error("Sealed courier cannot reach the ruler");
+              if (!channel.reachableActorIds.includes(recipientId)) {
+                throw new Error(`Sealed courier cannot reach ${recipientId}`);
               }
               committed.push(
                 {
                   eventType: "artifact.disclosure_recorded",
                   actorId: ids.clerk,
-                  targetIds: [ids.ruler, ids.ledger],
+                  targetIds: [recipientId, ids.ledger],
                   causalEventId: event.id,
-                  payload: { artifactId: ids.ledger, recipientId: ids.ruler },
+                  payload: { artifactId: ids.ledger, recipientId },
                 },
                 {
                   eventType: "message.created",
                   actorId: ids.clerk,
-                  targetIds: [ids.ruler],
+                  targetIds: [recipientId],
                   causalEventId: event.id,
                   payload: {
                     messageId: ids.message,
                     senderId: ids.clerk,
-                    recipientId: ids.ruler,
+                    recipientId,
                     artifactId: ids.ledger,
                   },
                 },
@@ -469,7 +498,7 @@ export function createDynamicPromotionModel(
                 eventType: "message.arrive",
                 scheduledAt: simTime(90),
                 actorId: ids.clerk,
-                targetIds: [ids.ruler],
+                targetIds: [recipientId],
                 causalEventId: event.id,
                 payload: { messageId: ids.message },
               });
@@ -498,8 +527,11 @@ export function createDynamicPromotionModel(
                 payload: { messageId: message.id },
               },
               observationDraft({
-                id: ids.rulerObservation,
-                actorId: ids.ruler,
+                id:
+                  message.recipientId === ids.ruler
+                    ? ids.rulerObservation
+                    : "observation:chancellor-receives-sealed-ledger",
+                actorId: message.recipientId,
                 sourceType: "sealed_evidence",
                 sourceId: message.id,
                 subjectRefs: [message.artifactId, ids.guard, ids.chancellor],
@@ -558,6 +590,19 @@ export function createDynamicPromotionModel(
                   String(event.payload.recipientId),
                 ],
               },
+            },
+          };
+        }
+        case "artifact.disposition_recorded": {
+          if (event.payload.capabilityId !== "conceal_evidence") {
+            throw new Error("Unknown artifact disposition");
+          }
+          const artifact = getArtifact(state, String(event.payload.artifactId));
+          return {
+            ...state,
+            artifacts: {
+              ...state.artifacts,
+              [artifact.id]: { ...artifact, disposition: "concealed" },
             },
           };
         }
@@ -687,7 +732,9 @@ export function createDynamicPromotionModel(
           };
         }
         default:
-          return state;
+          throw new Error(
+            `Unhandled domain event ${event.eventType} (${event.id})`,
+          );
       }
     },
 
@@ -1008,15 +1055,6 @@ function updateActor(
   actor: PersistentActor,
 ): DynamicPromotionState {
   return { ...state, actors: { ...state.actors, [actorId]: actor } };
-}
-
-function stringArray(value: JsonValue | undefined): string[] {
-  return Array.isArray(value) ? value.map(String) : [];
-}
-
-function objectValue(value: JsonValue | undefined): JsonObject {
-  if (!value || Array.isArray(value) || typeof value !== "object") return {};
-  return value as JsonObject;
 }
 
 function getActor(state: DynamicPromotionState, id: string): PersistentActor {

@@ -267,7 +267,8 @@ export const en = {
     "Deploy the guard to confront the visible armed movement before it enters the capital.",
   "play.issue": "Issue decree",
   "play.resolving": "Dispatching…",
-  "play.error": "The decree could not be committed. Start the scene again.",
+  "play.error": "The simulation could not continue. Start the scene again.",
+  "play.errorDetails": "Technical details",
   "play.resultLabel": "Commander report · t = 90",
   "play.securedTitle": "The palace is secure.",
   "play.securedCopy":
@@ -616,7 +617,8 @@ export const zhCN: Record<MessageKey, string> = {
   "play.eastCopy": "派禁军迎击看得见的武装调动，阻止其进入京城。",
   "play.issue": "颁布圣旨",
   "play.resolving": "正在传旨……",
-  "play.error": "这道命令未能写入模拟，请重新开始此场景。",
+  "play.error": "模拟未能继续，请重新开始此场景。",
+  "play.errorDetails": "错误详情",
   "play.resultLabel": "统领回报 · t = 90",
   "play.securedTitle": "皇宫安然无恙。",
   "play.securedCopy":

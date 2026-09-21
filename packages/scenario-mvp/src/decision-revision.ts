@@ -618,7 +618,9 @@ export const decisionRevisionModel: DomainModel<DecisionRevisionState> = {
         };
       }
       default:
-        return state;
+        throw new Error(
+          `Unhandled domain event ${event.eventType} (${event.id})`,
+        );
     }
   },
 

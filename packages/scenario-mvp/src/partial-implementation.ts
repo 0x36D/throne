@@ -623,7 +623,9 @@ export const partialImplementationModel: DomainModel<PartialImplementationState>
         case "observation.recorded":
           return recordObservation(state, event);
         default:
-          return state;
+          throw new Error(
+            `Unhandled domain event ${event.eventType} (${event.id})`,
+          );
       }
     },
 

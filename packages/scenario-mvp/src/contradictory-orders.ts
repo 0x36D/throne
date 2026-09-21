@@ -1,3 +1,4 @@
+import { readStringArray as asStringArray } from "@throne/shared-types";
 import {
   addSimTime,
   simTime,
@@ -682,6 +683,28 @@ export const contradictoryOrdersModel: DomainModel<ContradictoryOrdersState> = {
         const intent = intentFromEvent(event);
         return { ...state, intents: { ...state.intents, [intent.id]: intent } };
       }
+      case "operation.failed": {
+        const intent = requiredIntent(state, String(event.payload.intentId));
+        const order = requiredOrder(state, String(intent.parameters.orderId));
+        return {
+          ...state,
+          orders: {
+            ...state.orders,
+            [order.id]: {
+              ...order,
+              status: "failed",
+              lifecycle: [
+                ...order.lifecycle,
+                {
+                  status: "failed",
+                  occurredAt: event.occurredAt,
+                  eventId: event.id,
+                },
+              ],
+            },
+          },
+        };
+      }
       case "unit.moved": {
         const unit = requiredUnit(state, String(event.payload.unitId));
         return {
@@ -696,7 +719,9 @@ export const contradictoryOrdersModel: DomainModel<ContradictoryOrdersState> = {
         };
       }
       default:
-        return state;
+        throw new Error(
+          `Unhandled domain event ${event.eventType} (${event.id})`,
+        );
     }
   },
 
@@ -1318,11 +1343,6 @@ function updateMessageStatus(
     ...state,
     messages: { ...state.messages, [id]: { ...message, status } },
   };
-}
-
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map(String);
 }
 
 function rounded(value: number): number {

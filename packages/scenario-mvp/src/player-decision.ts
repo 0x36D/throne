@@ -1,4 +1,8 @@
 import {
+  readStringArray as stringArray,
+  readJsonObject as objectValue,
+} from "@throne/shared-types";
+import {
   HumanDecisionPolicy,
   type DecisionPolicy,
 } from "@throne/agent-runtime/policy";
@@ -609,7 +613,9 @@ export function reducePlayerDecisionState(
         },
       };
     default:
-      return state as PlayerDecisionState;
+      throw new Error(
+        `Unhandled domain event ${event.eventType} (${event.id})`,
+      );
   }
 }
 
@@ -891,14 +897,4 @@ function getOrder(state: Readonly<PlayerDecisionState>) {
   const order = state.orders[ids.order];
   if (!order) throw new Error(`Unknown order: ${ids.order}`);
   return order;
-}
-
-function stringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map(String);
-}
-
-function objectValue(value: unknown): JsonObject {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return structuredClone(value) as JsonObject;
 }

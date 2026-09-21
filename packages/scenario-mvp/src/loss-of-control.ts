@@ -1,4 +1,8 @@
 import {
+  readStringArray as stringArray,
+  readJsonObject as objectValue,
+} from "@throne/shared-types";
+import {
   addSimTime,
   simTime,
   type ControlRelationship,
@@ -916,7 +920,9 @@ export const lossOfControlModel: DomainModel<LossOfControlState> = {
         };
       }
       default:
-        return state;
+        throw new Error(
+          `Unhandled domain event ${event.eventType} (${event.id})`,
+        );
     }
   },
 
@@ -1568,15 +1574,6 @@ function objectiveLabel(objective: ControlObjective): string {
     secure_treasury: "Secure the Central Treasury",
     guard_military_pay_office: "Guard the Military Pay Office",
   }[objective];
-}
-
-function stringArray(value: JsonValue | undefined): string[] {
-  return Array.isArray(value) ? value.map(String) : [];
-}
-
-function objectValue(value: JsonValue | undefined): JsonObject {
-  if (!value || Array.isArray(value) || typeof value !== "object") return {};
-  return value as JsonObject;
 }
 
 function rounded(value: number): number {
