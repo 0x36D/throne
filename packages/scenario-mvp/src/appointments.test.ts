@@ -49,6 +49,7 @@ describe("office and appointment rules", () => {
     expect(run.state.decision?.selectedOrderId).toBe(ids.oldOrder);
     expect(run.state.orders[ids.newOrder]?.status).toBe("ignored");
     expect(run.state.unitLocationId).toBe(ids.payOffice);
+    expect(run.before.actors[ids.general]?.memories).toHaveLength(1);
   });
 
   it("changes obedience when the evidence changes, not from the actor's name", async () => {

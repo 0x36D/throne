@@ -7,6 +7,8 @@ import {
   type DomainEvent,
 } from "@throne/shared-types";
 import {
+  bootstrapModel,
+  bootstrapInitialState,
   falseReportModel,
   falseReportInitialState,
   partialImplementationModel,
@@ -19,6 +21,7 @@ import {
   decisionRevisionInitialState,
   lossOfControlModel,
   lossOfControlInitialState,
+  runLossOfControlScenario,
   dynamicPromotionModel,
   dynamicPromotionInitialState,
   dynamicPromotionIds,
@@ -35,8 +38,29 @@ const unknown: DomainEvent = {
 };
 
 describe("review regression cases", () => {
+  it("rejects damaged decision evaluations instead of treating them as empty", async () => {
+    const run = await runLossOfControlScenario("damaged-evaluations");
+    const original = run.records.find(
+      (r) =>
+        r.kind === "committed" && r.event.eventType === "decision.committed",
+    );
+    if (!original || original.kind !== "committed")
+      throw new Error("Missing fixture decision");
+    for (const evaluations of [
+      null,
+      [{ orderId: "order", total: 1, factors: null }],
+    ]) {
+      expect(() =>
+        lossOfControlModel.reduce(run.state, {
+          ...original.event,
+          payload: { ...original.event.payload, evaluations },
+        }),
+      ).toThrow(/must be an array/);
+    }
+  });
   it("all scenario projections reject unknown domain events", () => {
     const projections = [
+      () => bootstrapModel.reduce(bootstrapInitialState, unknown),
       () => falseReportModel.reduce(falseReportInitialState, unknown),
       () =>
         partialImplementationModel.reduce(

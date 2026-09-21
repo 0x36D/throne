@@ -1,4 +1,6 @@
 import {
+  runAppointmentScenario,
+  type AppointmentRun,
   contradictoryOrdersIds,
   decisionRevisionIds,
   dynamicPromotionIds,
@@ -42,10 +44,17 @@ import {
 } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
+import { AppointmentView } from "./appointment-view.tsx";
 import { RunFailure, reportRunError } from "./run-failure.tsx";
 
 type ScenarioKey =
-  "play" | "promotion" | "control" | "revision" | "conflict" | "partial";
+  | "play"
+  | "appointment"
+  | "promotion"
+  | "control"
+  | "revision"
+  | "conflict"
+  | "partial";
 
 const modes = ["play", "observe", "batch"] as const;
 const localeStorageKey = "throne.locale";
@@ -65,6 +74,7 @@ function App() {
   const [conflictRun, setConflictRun] = useState<ContradictoryOrdersRun>();
   const [revisionRun, setRevisionRun] = useState<DecisionRevisionRun>();
   const [controlRun, setControlRun] = useState<LossOfControlRun>();
+  const [appointmentRun, setAppointmentRun] = useState<AppointmentRun>();
   const [promotionRun, setPromotionRun] = useState<DynamicPromotionRun>();
   const [playerSession, setPlayerSession] = useState<PlayerDecisionSession>();
   const [playerRun, setPlayerRun] = useState<PlayerDecisionRun>();
@@ -77,6 +87,7 @@ function App() {
 
   useEffect(() => {
     void Promise.all([
+      runAppointmentScenario({ runId: "web-appointments" }),
       runPartialImplementationScenario("web-partial-implementation"),
       runContradictoryOrdersScenario("web-contradictory-orders"),
       runDecisionRevisionScenario("web-decision-revision"),
@@ -86,13 +97,16 @@ function App() {
         outputLanguage: locale,
       }),
     ])
-      .then(([partial, conflict, revision, control, promotion]) => {
-        setPartialRun(partial);
-        setConflictRun(conflict);
-        setRevisionRun(revision);
-        setControlRun(control);
-        setPromotionRun(promotion);
-      })
+      .then(
+        ([appointment, partial, conflict, revision, control, promotion]) => {
+          setAppointmentRun(appointment);
+          setPartialRun(partial);
+          setConflictRun(conflict);
+          setRevisionRun(revision);
+          setControlRun(control);
+          setPromotionRun(promotion);
+        },
+      )
       .catch((error: unknown) => setPlayerError(reportRunError(error)));
   }, [playerSessionNumber]);
 
@@ -144,30 +158,35 @@ function App() {
     setPlayerSessionNumber((value) => value + 1);
   };
   const playing = scenario === "play";
+  const appointment = scenario === "appointment";
   const promotion = scenario === "promotion";
   const control = scenario === "control";
   const revision = scenario === "revision";
   const conflict = scenario === "conflict";
-  const scenarioTitle = playing
-    ? t("scenario.play.title")
+  const scenarioTitle = appointment
+    ? t("appointment.title")
+    : playing
+      ? t("scenario.play.title")
+      : promotion
+        ? t("scenario.promotion.title")
+        : control
+          ? t("scenario.control.title")
+          : revision
+            ? t("scenario.revision.short")
+            : conflict
+              ? t("scenario.conflict.short")
+              : t("scenario.partial.short");
+  const momentLabels = appointment
+    ? [t("appointment.before"), t("appointment.after")]
     : promotion
-      ? t("scenario.promotion.title")
+      ? [t("scenario.promotion.before"), t("scenario.promotion.after")]
       : control
-        ? t("scenario.control.title")
+        ? [t("scenario.control.before"), t("scenario.control.after")]
         : revision
-          ? t("scenario.revision.short")
+          ? [t("scenario.revision.before"), t("scenario.revision.after")]
           : conflict
-            ? t("scenario.conflict.short")
-            : t("scenario.partial.short");
-  const momentLabels = promotion
-    ? [t("scenario.promotion.before"), t("scenario.promotion.after")]
-    : control
-      ? [t("scenario.control.before"), t("scenario.control.after")]
-      : revision
-        ? [t("scenario.revision.before"), t("scenario.revision.after")]
-        : conflict
-          ? [t("scenario.conflict.before"), t("scenario.conflict.after")]
-          : [t("scenario.partial.before"), t("scenario.partial.after")];
+            ? [t("scenario.conflict.before"), t("scenario.conflict.after")]
+            : [t("scenario.partial.before"), t("scenario.partial.after")];
 
   return (
     <I18nContext.Provider value={t}>
@@ -195,6 +214,13 @@ function App() {
         </header>
 
         <nav className="scenario-picker" aria-label={t("app.scenarioPicker")}>
+          <button
+            className={appointment ? "active" : ""}
+            onClick={() => chooseScenario("appointment")}
+          >
+            <span>{t("appointment.badge")}</span>
+            {t("appointment.short")}
+          </button>
           <button
             className={playing ? "active" : ""}
             onClick={() => chooseScenario("play")}
@@ -232,7 +258,12 @@ function App() {
           </button>
           <button
             className={
-              !playing && !promotion && !control && !revision && !conflict
+              !playing &&
+              !appointment &&
+              !promotion &&
+              !control &&
+              !revision &&
+              !conflict
                 ? "active"
                 : ""
             }
@@ -293,13 +324,21 @@ function App() {
               t={t}
               onRestart={restartPlayerScenario}
             />
-          ) : !partialRun ||
+          ) : !appointmentRun ||
+            !partialRun ||
             !conflictRun ||
             !revisionRun ||
             !controlRun ||
             !promotionRun ||
             !playerSession ? (
             <p className="loading">{t("app.loading")}</p>
+          ) : appointment ? (
+            <AppointmentView
+              run={appointmentRun}
+              view={view}
+              moment={moment}
+              t={t}
+            />
           ) : playing ? (
             view === "ruler" ? (
               <PlayableRulerView
@@ -395,20 +434,28 @@ function App() {
           <div>
             <p className="eyebrow">{t("app.currentBoundary")}</p>
             <h2 id="boundary-heading">
-              {playing
-                ? t("boundary.play.title")
-                : promotion
-                  ? t("boundary.promotion.title")
-                  : control
-                    ? t("boundary.control.title")
-                    : revision
-                      ? t("boundary.revision.title")
-                      : conflict
-                        ? t("boundary.conflict.title")
-                        : t("boundary.partial.title")}
+              {appointment
+                ? t("appointment.boundary")
+                : playing
+                  ? t("boundary.play.title")
+                  : promotion
+                    ? t("boundary.promotion.title")
+                    : control
+                      ? t("boundary.control.title")
+                      : revision
+                        ? t("boundary.revision.title")
+                        : conflict
+                          ? t("boundary.conflict.title")
+                          : t("boundary.partial.title")}
             </h2>
           </div>
-          {playing ? (
+          {appointment ? (
+            <ol>
+              {([1, 2, 3, 4] as const).map((n) => (
+                <li key={n}>{t(`appointment.boundary${n}`)}</li>
+              ))}
+            </ol>
+          ) : playing ? (
             <ol>
               <li>{t("boundary.play.1")}</li>
               <li>{t("boundary.play.2")}</li>

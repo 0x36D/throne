@@ -100,7 +100,18 @@ function actor(id: string): PersistentActor {
     identity: { id, displayNameKey: id, background: { origin: "capital" } },
     officeHistory: [],
     motivations: { preserveStanding: 0.8 },
-    memories: [],
+    memories:
+      id === ids.general
+        ? [
+            {
+              id: "memory:old-command",
+              occurredAt: simTime(0),
+              kind: "prior_service",
+              subjectRefs: [ids.captain, ids.army],
+              payload: { experience: "served_together" },
+            },
+          ]
+        : [],
     beliefs: [],
     cognition: {
       tier: "lightweight",

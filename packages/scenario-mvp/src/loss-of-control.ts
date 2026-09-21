@@ -1522,10 +1522,13 @@ function evaluationJson(evaluation: ControlOrderEvaluation): JsonObject {
 function evaluationsFromJson(
   value: JsonValue | undefined,
 ): ControlOrderEvaluation[] {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value))
+    throw new Error("Decision evaluations must be an array");
   return value.map((item) => {
     const object = objectValue(item);
-    const rawFactors = Array.isArray(object.factors) ? object.factors : [];
+    if (!Array.isArray(object.factors))
+      throw new Error("Decision factors must be an array");
+    const rawFactors = object.factors;
     return {
       orderId: String(object.orderId),
       total: Number(object.total),

@@ -80,16 +80,20 @@ export const bootstrapModel: DomainModel<BootstrapState> = {
     return { events: committed, scheduled };
   },
   reduce(state, event: DomainEvent) {
+    if (
+      event.eventType !== "message.departed" &&
+      event.eventType !== "message.arrived"
+    ) {
+      throw new Error(
+        `Unhandled domain event ${event.eventType} (${event.id})`,
+      );
+    }
     const messageId = String(event.payload.messageId);
     const message = state.messages[messageId];
     if (!message) throw new Error(`Unknown message: ${messageId}`);
 
     const status =
-      event.eventType === "message.departed"
-        ? "in_transit"
-        : event.eventType === "message.arrived"
-          ? "delivered"
-          : message.status;
+      event.eventType === "message.departed" ? "in_transit" : "delivered";
 
     return {
       messages: {
