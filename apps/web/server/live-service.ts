@@ -70,8 +70,11 @@ export class LiveService {
     return this.snapshot(entry);
   }
 
-  get(id: string): LiveSnapshot {
-    return this.snapshot(this.required(id));
+  async get(id: string): Promise<LiveSnapshot> {
+    const entry = this.entries.get(id);
+    if (entry) return this.snapshot(entry);
+    const saved = await this.review(id);
+    return { id, status: "complete", view: saved.run.rulerViewFinal };
   }
 
   async choose(id: string, choice: PlayerChoiceId): Promise<LiveSnapshot> {

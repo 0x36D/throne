@@ -49,7 +49,7 @@ export function livePlugin(root: string): Plugin {
           } else if (req.method === "GET" && id) {
             if (action === "review") result = await service.review(id);
             else if (action === "replay") result = await service.replay(id);
-            else if (!action) result = service.get(id);
+            else if (!action) result = await service.get(id);
             else throw new Error("Unknown live route");
           } else throw new Error("Unknown live route");
           res.end(JSON.stringify(result));

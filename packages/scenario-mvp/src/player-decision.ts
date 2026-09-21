@@ -862,7 +862,9 @@ export async function startPlayerDecisionSession(
     pausedAt: kernel.time,
     input,
     choiceIds,
-    rulerView: rulerViewBeforeDecision,
+    get rulerView() {
+      return playerDecisionRulerView(kernel.state, kernel.time);
+    },
     async choose(choiceId) {
       if (started) throw new Error("Player decision already resolved");
       if (!choiceIds.includes(choiceId))
@@ -923,7 +925,11 @@ export function playerDecisionRulerView(
           issuedOrder: {
             id: order.id,
             choiceId: order.choiceId,
-            status: order.status,
+            status: report
+              ? order.status
+              : order.lifecycle.some((entry) => entry.status === "sent")
+                ? "sent"
+                : "created",
           },
         }
       : {}),

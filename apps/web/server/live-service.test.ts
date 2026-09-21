@@ -62,6 +62,7 @@ describe("live NPC sessions", () => {
         },
       }));
       expect((await reopened.replay(start.id)).verified).toBe(true);
+      expect((await reopened.get(start.id)).status).toBe("complete");
       expect(
         await readFile(join(root, "runs", start.id + ".json"), "utf8"),
       ).not.toContain("reasoning_content");
@@ -100,6 +101,13 @@ describe("live NPC sessions", () => {
       const failed = await service.choose(start.id, "hold_imperial_palace");
       expect(failed.status).toBe("failed");
       expect(failed.error).toBeTruthy();
+      expect(failed.view.decisionStatus).toBe("resolved");
+      expect(failed.view.issuedOrder?.status).toBe("sent");
+      expect(
+        failed.view.observations.some(
+          (o) => o.actorId === "actor:guard-commander",
+        ),
+      ).toBe(false);
       await expect(service.review(start.id)).rejects.toThrow();
       await expect(
         service.choose(start.id, "move_to_east_gate"),

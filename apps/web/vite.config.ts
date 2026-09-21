@@ -8,5 +8,19 @@ export default defineConfig({
     react(),
     livePlugin(fileURLToPath(new URL("../../", import.meta.url))),
   ],
-  server: { port: 4173, host: "127.0.0.1" },
+  server: {
+    port: 4173,
+    host: "127.0.0.1",
+    fs: {
+      deny: [
+        ".env",
+        ".env.*",
+        "*.{crt,pem}",
+        "**/.git/**",
+        "**/secret/**",
+        "**/runs/**",
+        "**/.dsh/**",
+      ],
+    },
+  },
 });
