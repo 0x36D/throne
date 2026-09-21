@@ -56,13 +56,14 @@ export class DeepSeekHarnessDecisionPolicy
       env,
       ...harnessOptions
     } = options;
+    if (!systemPrompt.trim())
+      throw new Error("Actor instructions must not be empty");
     this.#onTrace = onTrace;
     this.#harness = new DeepSeekHarness({
       ...harnessOptions,
       profile: "sdk-minimal",
       env: {
-        ...process.env,
-        ...env,
+        ...(env ?? process.env),
         DSH_SYSTEM_PROMPT: systemPrompt,
       },
     });

@@ -26,6 +26,11 @@ import {
   SimulationKernel,
   type DomainModel,
 } from "@throne/sim-core";
+import {
+  commanderInput,
+  npcCapabilities,
+  npcEpisodeId,
+} from "./commander-context.ts";
 
 export type PlayerChoiceId = "hold_imperial_palace" | "move_to_east_gate";
 
@@ -63,6 +68,12 @@ export type PlayerUnit = {
 export type PlayerCrisisOutcome = "palace_secured" | "palace_breached";
 
 export type PlayerDecisionState = {
+  readonly npcEpisode?: DecisionEpisode;
+  readonly npcDecision?: {
+    readonly input: ActorDecisionInput;
+    readonly output: ActorDecisionOutput;
+    readonly targetLocationId: string;
+  };
   readonly units: Readonly<Record<string, PlayerUnit>>;
   readonly observations: Readonly<Record<string, Observation>>;
   readonly actorObservationIds: Readonly<Record<string, readonly string[]>>;
@@ -115,9 +126,11 @@ export type PlayerDecisionSession = {
   readonly choiceIds: readonly PlayerChoiceId[];
   readonly rulerView: PlayerDecisionRulerView;
   choose(choiceId: PlayerChoiceId): Promise<PlayerDecisionRun>;
+  retry(): Promise<PlayerDecisionRun>;
 };
 
 export type PlayerDecisionSessionOptions = {
+  readonly npcPolicy?: DecisionPolicy;
   readonly runId?: string;
   readonly outputLanguage?: string;
 };
@@ -180,6 +193,7 @@ export function createPlayerDecisionModel(
   policy: DecisionPolicy,
   runId: string,
   outputLanguage = "zh-CN",
+  npcPolicy?: DecisionPolicy,
 ): DomainModel<PlayerDecisionState> {
   return {
     async resolveBatch({ events, state, time }) {
@@ -340,9 +354,28 @@ export function createPlayerDecisionModel(
               messageStatusDraft(event, "message.arrived"),
               orderStatusDraft(event, "received"),
             );
+            if (npcPolicy)
+              committed.push({
+                eventType: "npc.decision_opened",
+                actorId: ids.commander,
+                causalEventId: event.id,
+                payload: {
+                  observations: commanderInput(
+                    {
+                      ...state,
+                      orders: {
+                        ...state.orders,
+                        [ids.order]: { ...getOrder(state), status: "received" },
+                      },
+                    },
+                    runId,
+                    outputLanguage,
+                  ).observations as unknown as JsonObject[],
+                },
+              });
             scheduled.push({
-              eventType: "operation.execute_order",
-              scheduledAt: addSimTime(time, 15),
+              eventType: npcPolicy ? "npc.resolve" : "operation.execute_order",
+              scheduledAt: addSimTime(time, npcPolicy ? 5 : 15),
               actorId: ids.commander,
               targetIds: [ids.unit],
               causalEventId: event.id,
@@ -350,10 +383,54 @@ export function createPlayerDecisionModel(
             });
             break;
 
+          case "npc.resolve": {
+            if (!npcPolicy) throw new Error("NPC policy missing");
+            const input = commanderInput(state, runId, outputLanguage);
+            const output = actorDecisionOutputSchema.parse(
+              await npcPolicy.decide(input),
+            );
+            if (
+              !npcCapabilities.some(
+                (capability) =>
+                  capability === output.selectedIntent.capabilityId,
+              )
+            ) {
+              throw new Error("NPC selected unavailable capability");
+            }
+            if (Object.keys(output.selectedIntent.parameters).length !== 0) {
+              throw new Error("NPC capabilities require empty parameters");
+            }
+            const targetLocationId =
+              output.selectedIntent.capabilityId === "obey_ruler"
+                ? getOrder(state).targetLocationId
+                : "location:military-pay-office";
+            committed.push({
+              eventType: "npc.decision_recorded",
+              actorId: ids.commander,
+              causalEventId: event.id,
+              causalDecisionEpisodeId: npcEpisodeId,
+              payload: {
+                input: input as unknown as JsonObject,
+                output: output as unknown as JsonObject,
+                targetLocationId,
+              },
+            });
+            scheduled.push({
+              eventType: "operation.execute_order",
+              scheduledAt: addSimTime(time, 10),
+              actorId: ids.commander,
+              causalEventId: event.id,
+              causalDecisionEpisodeId: npcEpisodeId,
+              payload: { orderId: ids.order },
+            });
+            break;
+          }
           case "operation.execute_order": {
             const order = getOrder(state);
+            const targetLocationId =
+              state.npcDecision?.targetLocationId ?? order.targetLocationId;
             const outcome: PlayerCrisisOutcome =
-              order.choiceId === "hold_imperial_palace"
+              targetLocationId === ids.palace
                 ? "palace_secured"
                 : "palace_breached";
             committed.push(
@@ -365,10 +442,15 @@ export function createPlayerDecisionModel(
                 causalDecisionEpisodeId: ids.decision,
                 payload: {
                   unitId: ids.unit,
-                  locationId: order.targetLocationId,
+                  locationId: targetLocationId,
                 },
               },
-              orderStatusDraft(event, "executed"),
+              orderStatusDraft(
+                event,
+                targetLocationId === order.targetLocationId
+                  ? "executed"
+                  : "ignored",
+              ),
               {
                 eventType: "crisis.resolved",
                 actorId: ids.commander,
@@ -414,7 +496,12 @@ export function createPlayerDecisionModel(
           case "report.arrive":
             committed.push(
               messageStatusDraft(event, "message.arrived"),
-              orderStatusDraft(event, "reported_complete"),
+              orderStatusDraft(
+                event,
+                getOrder(state).status === "ignored"
+                  ? "ignored"
+                  : "reported_complete",
+              ),
               observationDraft({
                 id: ids.outcomeObservation,
                 actorId: ids.ruler,
@@ -424,6 +511,8 @@ export function createPlayerDecisionModel(
                 payload: {
                   outcome: String(event.payload.outcome),
                   orderId: ids.order,
+                  targetLocationId: state.units[ids.unit]!.locationId,
+                  obeyed: getOrder(state).status !== "ignored",
                 },
                 cause: event.id,
               }),
@@ -461,6 +550,77 @@ export function reducePlayerDecisionState(
   event: DomainEvent,
 ): PlayerDecisionState {
   switch (event.eventType) {
+    case "npc.decision_opened":
+      if (!Array.isArray(event.payload.observations))
+        throw new Error("Missing NPC observations");
+      return {
+        ...state,
+        observations: {
+          ...state.observations,
+          ...Object.fromEntries(
+            (event.payload.observations as unknown as Observation[]).map(
+              (observation) => [observation.id, observation],
+            ),
+          ),
+        },
+        actorObservationIds: {
+          ...state.actorObservationIds,
+          [ids.commander]: [
+            "npc:royal-order",
+            "npc:chancellor-order",
+            "npc:scout-report",
+            "npc:palace-warning",
+          ],
+        },
+        npcEpisode: {
+          id: npcEpisodeId,
+          actorId: ids.commander,
+          openedAt: event.occurredAt,
+          triggerObservationIds: [
+            "npc:royal-order",
+            "npc:chancellor-order",
+            "npc:scout-report",
+            "npc:palace-warning",
+          ],
+          status: "open",
+          urgency: 0.9,
+          provisionalIntents: [],
+          revisionCount: 0,
+          finalIntentIds: [],
+        },
+      };
+    case "npc.decision_recorded":
+      if (!state.npcEpisode) throw new Error("Missing open NPC decision");
+      return {
+        ...state,
+        npcEpisode: {
+          ...state.npcEpisode,
+          status: "committed",
+          finalIntentIds: ["intent:npc-deployment"],
+        },
+        intents: {
+          ...state.intents,
+          ["intent:npc-deployment"]: {
+            id: "intent:npc-deployment",
+            actorId: ids.commander,
+            createdAt: event.occurredAt,
+            goal: actorDecisionOutputSchema.parse(event.payload.output)
+              .selectedIntent.goal,
+            operationTemplate: "move_unit",
+            parameters: {
+              targetLocationId: String(event.payload.targetLocationId),
+            },
+            causalDecisionEpisodeId: npcEpisodeId,
+          },
+        },
+        npcDecision: {
+          input: objectValue(
+            event.payload.input,
+          ) as unknown as ActorDecisionInput,
+          output: actorDecisionOutputSchema.parse(event.payload.output),
+          targetLocationId: String(event.payload.targetLocationId),
+        },
+      };
     case "observation.recorded": {
       const observation = observationFromEvent(event);
       const existing = state.actorObservationIds[observation.actorId] ?? [];
@@ -625,7 +785,12 @@ export async function startPlayerDecisionSession(
   const runId = options.runId ?? "player-decision-demo";
   const outputLanguage = options.outputLanguage ?? "zh-CN";
   const policy = new HumanDecisionPolicy();
-  const model = createPlayerDecisionModel(policy, runId, outputLanguage);
+  const model = createPlayerDecisionModel(
+    policy,
+    runId,
+    outputLanguage,
+    options.npcPolicy,
+  );
   const store = new InMemoryEventStore();
   const kernel = new SimulationKernel(
     playerDecisionInitialState,
@@ -652,27 +817,14 @@ export async function startPlayerDecisionSession(
     stateBeforeDecision,
     kernel.time,
   );
-  let resolved = false;
-
-  return {
-    runId,
-    pausedAt: kernel.time,
-    input,
-    choiceIds,
-    rulerView: rulerViewBeforeDecision,
-    async choose(choiceId) {
-      if (resolved) throw new Error("Player decision already resolved");
-      if (!choiceIds.includes(choiceId)) {
-        throw new Error(`Unknown player choice: ${String(choiceId)}`);
-      }
-      resolved = true;
-      policy.submit(ids.decision, playerChoiceOutput(choiceId));
-      await kernel.schedule({
-        eventType: "decision.resolve_with_policy",
-        scheduledAt: kernel.time,
-        actorId: ids.ruler,
-        payload: { decisionEpisodeId: ids.decision },
-      });
+  let started = false;
+  let busy = false;
+  let completed: PlayerDecisionRun | undefined;
+  async function finish(): Promise<PlayerDecisionRun> {
+    if (completed) return completed;
+    if (busy) throw new Error("Player decision is already running");
+    busy = true;
+    try {
       await kernel.runUntilIdle();
       const state = kernel.state;
       const outcome = state.crisis.outcome;
@@ -684,7 +836,7 @@ export async function startPlayerDecisionSession(
       if (!outcome || !unit || !episode || !output || !intent || !order) {
         throw new Error("Player decision scenario did not reach completion");
       }
-      return {
+      completed = {
         state,
         records: await store.readAll(),
         rulerViewBeforeDecision,
@@ -700,6 +852,34 @@ export async function startPlayerDecisionSession(
           messages: Object.values(state.messages),
         },
       };
+      return completed;
+    } finally {
+      busy = false;
+    }
+  }
+  return {
+    runId,
+    pausedAt: kernel.time,
+    input,
+    choiceIds,
+    rulerView: rulerViewBeforeDecision,
+    async choose(choiceId) {
+      if (started) throw new Error("Player decision already resolved");
+      if (!choiceIds.includes(choiceId))
+        throw new Error(`Unknown player choice: ${String(choiceId)}`);
+      started = true;
+      policy.submit(ids.decision, playerChoiceOutput(choiceId));
+      await kernel.schedule({
+        eventType: "decision.resolve_with_policy",
+        scheduledAt: kernel.time,
+        actorId: ids.ruler,
+        payload: { decisionEpisodeId: ids.decision },
+      });
+      return finish();
+    },
+    async retry() {
+      if (!started) throw new Error("Submit a player choice before retrying");
+      return finish();
     },
   };
 }

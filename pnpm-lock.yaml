@@ -53,12 +53,18 @@ importers:
 
   apps/web:
     dependencies:
+      '@throne/agent-runtime':
+        specifier: workspace:*
+        version: link:../../packages/agent-runtime
       '@throne/localization':
         specifier: workspace:*
         version: link:../../packages/localization
       '@throne/scenario-mvp':
         specifier: workspace:*
         version: link:../../packages/scenario-mvp
+      '@throne/sim-core':
+        specifier: workspace:*
+        version: link:../../packages/sim-core
       '@vitejs/plugin-react':
         specifier: ^6.1.1
         version: 6.1.1(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(tsx@4.23.13)(yaml@2.9.1))

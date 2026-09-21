@@ -319,6 +319,33 @@ article.report {
   color: #858274;
 }
 
+.live-play {
+  padding-top: 24px;
+}
+.live-play pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+.live-play details {
+  margin-top: 18px;
+}
+.live-play > .panel-label {
+  margin-top: 24px;
+}
+.live-result {
+  margin-top: 24px;
+}
+.live-play .debug-panel > p {
+  line-height: 1.7;
+}
+.scenario-picker {
+  flex-wrap: wrap;
+}
+.scenario-picker button {
+  min-width: 125px;
+}
+
 .appointment-history {
   margin-top: 32px;
   overflow-x: auto;

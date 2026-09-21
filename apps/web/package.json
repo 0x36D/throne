@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
-    "dev": "vite"
+    "build": "vite build --configLoader runner",
+    "dev": "vite --configLoader runner"
   },
   "dependencies": {
+    "@throne/agent-runtime": "workspace:*",
+    "@throne/sim-core": "workspace:*",
     "@throne/localization": "workspace:*",
     "@throne/scenario-mvp": "workspace:*",
     "@vitejs/plugin-react": "^6.1.1",

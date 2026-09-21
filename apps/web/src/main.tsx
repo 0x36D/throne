@@ -44,11 +44,13 @@ import {
 } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
+import { LivePlay } from "./live-play.tsx";
 import { AppointmentView } from "./appointment-view.tsx";
 import { RunFailure, reportRunError } from "./run-failure.tsx";
 
 type ScenarioKey =
   | "play"
+  | "live"
   | "appointment"
   | "promotion"
   | "control"
@@ -163,19 +165,22 @@ function App() {
   const control = scenario === "control";
   const revision = scenario === "revision";
   const conflict = scenario === "conflict";
-  const scenarioTitle = appointment
-    ? t("appointment.title")
-    : playing
-      ? t("scenario.play.title")
-      : promotion
-        ? t("scenario.promotion.title")
-        : control
-          ? t("scenario.control.title")
-          : revision
-            ? t("scenario.revision.short")
-            : conflict
-              ? t("scenario.conflict.short")
-              : t("scenario.partial.short");
+  const scenarioTitle =
+    scenario === "live"
+      ? t("live.title")
+      : appointment
+        ? t("appointment.title")
+        : playing
+          ? t("scenario.play.title")
+          : promotion
+            ? t("scenario.promotion.title")
+            : control
+              ? t("scenario.control.title")
+              : revision
+                ? t("scenario.revision.short")
+                : conflict
+                  ? t("scenario.conflict.short")
+                  : t("scenario.partial.short");
   const momentLabels = appointment
     ? [t("appointment.before"), t("appointment.after")]
     : promotion
@@ -214,6 +219,13 @@ function App() {
         </header>
 
         <nav className="scenario-picker" aria-label={t("app.scenarioPicker")}>
+          <button
+            className={scenario === "live" ? "active" : ""}
+            onClick={() => chooseScenario("live")}
+          >
+            <span>DeepSeek</span>
+            {t("live.short")}
+          </button>
           <button
             className={appointment ? "active" : ""}
             onClick={() => chooseScenario("appointment")}
@@ -258,6 +270,7 @@ function App() {
           </button>
           <button
             className={
+              scenario !== "live" &&
               !playing &&
               !appointment &&
               !promotion &&
@@ -280,7 +293,11 @@ function App() {
               <p className="eyebrow">{t("app.liveSlice")}</p>
               <h2>{scenarioTitle}</h2>
             </div>
-            <div className="scenario-controls">
+            <div
+              className="scenario-controls"
+              hidden={scenario === "live"}
+              style={scenario === "live" ? { display: "none" } : undefined}
+            >
               {!playing ? (
                 <div className="view-switch" aria-label={t("app.momentPicker")}>
                   <button
@@ -318,7 +335,9 @@ function App() {
             </div>
           </div>
 
-          {playerError ? (
+          {scenario === "live" ? (
+            <LivePlay locale={locale} t={t} />
+          ) : playerError ? (
             <RunFailure
               error={playerError}
               t={t}
@@ -430,7 +449,12 @@ function App() {
           </div>
         </section>
 
-        <section className="boundary" aria-labelledby="boundary-heading">
+        <section
+          className="boundary"
+          aria-labelledby="boundary-heading"
+          hidden={scenario === "live"}
+          style={scenario === "live" ? { display: "none" } : undefined}
+        >
           <div>
             <p className="eyebrow">{t("app.currentBoundary")}</p>
             <h2 id="boundary-heading">
