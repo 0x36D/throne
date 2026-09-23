@@ -33,6 +33,19 @@ describe("patronage and corruption network", () => {
     expect(run.state.accountability.disputes).toContain(networkIds.finding);
   });
 
+  it("exposes the chain and prosecutes every participant", async () => {
+    const run = await runNetworkCourt();
+    expect(run.view.exposed).toBe(true);
+    expect(run.view.findings).toBeGreaterThanOrEqual(3);
+    expect(run.view.removals).toBeGreaterThanOrEqual(3);
+    expect(
+      run.state.accountability.removals.every(
+        (removal) =>
+          removal.basis === "evidence" && removal.findingId !== undefined,
+      ),
+    ).toBe(true);
+  });
+
   it("replays from committed records without model calls", async () => {
     const run = await runNetworkCourt();
     expect(

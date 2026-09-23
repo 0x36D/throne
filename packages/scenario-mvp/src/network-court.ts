@@ -53,6 +53,7 @@ export type NetworkState = {
   readonly fiscal: FiscalState;
   readonly accountability: AccountabilityState;
   readonly bribery: BriberyState;
+  readonly exposed: boolean;
   readonly timeline: readonly { readonly at: SimTime; readonly text: string }[];
 };
 
@@ -68,6 +69,9 @@ export type NetworkRun = {
     readonly disputes: number;
     readonly corruption: number;
     readonly obligations: number;
+    readonly findings: number;
+    readonly removals: number;
+    readonly exposed: boolean;
     readonly treasuryTruth: number;
     readonly treasuryReported: number | undefined;
     readonly treasuryVerified: number | undefined;
@@ -189,6 +193,7 @@ export function createNetworkInitialState(): NetworkState {
       actors: {
         [ids.governor]: { id: ids.governor, influence: 1, loyaltyToRuler: 0.3 },
         [ids.censor]: { id: ids.censor, influence: 1, loyaltyToRuler: 0.3 },
+        [ids.clerk]: { id: ids.clerk, influence: 0.8, loyaltyToRuler: 0.3 },
       },
       relationships: {
         "relationship:censor-protects-governor": {
@@ -204,6 +209,7 @@ export function createNetworkInitialState(): NetworkState {
       },
     },
     bribery,
+    exposed: false,
     timeline: [],
   };
 }
@@ -385,6 +391,65 @@ export function createNetworkModel(
               payload: { findingId: ids.finding },
             });
             break;
+          case "court.investigate": {
+            const chain = deriveBriberyChain(state.bribery, ids.chain);
+            const participants = new Set<string>();
+            for (const bribe of chain.records) {
+              if (bribe.status !== "accepted") continue;
+              participants.add(bribe.fromId);
+              participants.add(bribe.toId);
+            }
+            for (const actorId of participants) {
+              const evidenceRefs = state.bribery.corruption
+                .filter((record) => {
+                  const bribe = state.bribery.bribes[record.bribeId];
+                  return (
+                    bribe !== undefined &&
+                    (bribe.fromId === actorId || bribe.toId === actorId)
+                  );
+                })
+                .map((record) => record.id);
+              committed.push({
+                eventType: "finding.recorded",
+                actorId: ids.inspector,
+                causalEventId: event.id,
+                payload: {
+                  findingId: `finding:${actorId}`,
+                  actorId,
+                  officeId: `office:${actorId}`,
+                  subject: "participation in a bribery chain",
+                  claimRefs: ["return:governor"],
+                  evidenceRefs,
+                  strength: 0.85,
+                },
+              });
+            }
+            committed.push({
+              eventType: "chain.exposed",
+              actorId: ids.inspector,
+              causalEventId: event.id,
+              payload: {},
+            });
+            break;
+          }
+          case "court.prosecute":
+            for (const finding of Object.values(
+              state.accountability.findings,
+            )) {
+              committed.push({
+                eventType: "removal.recorded",
+                actorId: ids.inspector,
+                causalEventId: event.id,
+                payload: {
+                  removalId: `removal:${finding.actorId}`,
+                  actorId: finding.actorId,
+                  officeId: finding.officeId,
+                  basis: "evidence",
+                  findingId: finding.id,
+                },
+              });
+            }
+            break;
           default:
             throw new Error(`Unknown network event: ${event.eventType}`);
         }
@@ -429,6 +494,16 @@ export function reduceNetworkState(
       ],
     };
   }
+  if (event.eventType === "chain.exposed") {
+    return {
+      ...state,
+      exposed: true,
+      timeline: [
+        ...state.timeline,
+        { at: event.occurredAt, text: "chain exposed" },
+      ],
+    };
+  }
   throw new Error(`Unhandled network event ${event.eventType} (${event.id})`);
 }
 
@@ -446,6 +521,9 @@ export function networkView(
     disputes: state.accountability.disputes.length,
     corruption: state.bribery.corruption.length,
     obligations: state.bribery.obligations.length,
+    findings: Object.keys(state.accountability.findings).length,
+    removals: state.accountability.removals.length,
+    exposed: state.exposed,
     treasuryTruth: deriveBalance(state.fiscal, ids.treasury),
     treasuryReported: deriveReportedBalance(state.fiscal, ids.treasury),
     treasuryVerified: deriveVerifiedBalance(state.fiscal, ids.treasury),
@@ -524,6 +602,18 @@ export async function runNetworkCourt(
       eventType: "court.dispute",
       scheduledAt: simTime(45),
       actorId: ids.censor,
+      payload: {},
+    },
+    {
+      eventType: "court.investigate",
+      scheduledAt: simTime(60),
+      actorId: ids.inspector,
+      payload: {},
+    },
+    {
+      eventType: "court.prosecute",
+      scheduledAt: simTime(70),
+      actorId: ids.inspector,
       payload: {},
     },
   ]) {
