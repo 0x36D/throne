@@ -106,6 +106,21 @@ export function deriveEvidenceStrength(
   return rounded(finding.strength * disputed);
 }
 
+export function deriveProtectionScore(
+  state: AccountabilityState,
+  actorId: string,
+): number {
+  const backers = Object.values(state.relationships).filter(
+    (edge) => edge.targetId === actorId,
+  );
+  return rounded(
+    backers.reduce(
+      (sum, edge) => sum + Math.max(0, edge.valence) * edge.strength,
+      0,
+    ),
+  );
+}
+
 export function deriveResistanceToRemoval(
   state: AccountabilityState,
   actorId: string,

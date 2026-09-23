@@ -5,6 +5,9 @@ export type BribeStatus = "offered" | "accepted" | "rejected";
 
 export type BribeRecord = {
   readonly id: string;
+  readonly chainId: string;
+  readonly parentBribeId?: string;
+  readonly instruction?: string;
   readonly fromId: string;
   readonly toId: string;
   readonly amount: number;
@@ -21,6 +24,18 @@ export type CorruptionRecord = {
   readonly amount: number;
   readonly evidenceRefs: readonly string[];
   readonly at: SimTime;
+};
+
+export type ObligationKind = "office" | "money" | "pardon" | "protection";
+
+export type ObligationRecord = {
+  readonly id: string;
+  readonly debtorId: string;
+  readonly creditorId: string;
+  readonly kind: ObligationKind;
+  readonly value: number;
+  readonly at: SimTime;
+  readonly eventId: string;
 };
 
 export type BribeOfferView = {

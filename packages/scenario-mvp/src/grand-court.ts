@@ -542,6 +542,7 @@ export function createGrandModel(
               causalEventId: event.id,
               payload: {
                 bribeId: ids.bribe,
+                chainId: ids.bribe,
                 fromId: ids.governor,
                 toId,
                 amount,
@@ -578,6 +579,18 @@ export function createGrandModel(
                   bribeId: ids.bribe,
                   amount,
                   evidenceRefs: [ids.bribe],
+                },
+              });
+              committed.push({
+                eventType: "obligation.incurred",
+                actorId: ids.governor,
+                causalEventId: event.id,
+                payload: {
+                  obligationId: "obligation:sima-governor",
+                  debtorId: toId,
+                  creditorId: ids.governor,
+                  kind: "money",
+                  value: amount,
                 },
               });
             }
@@ -977,7 +990,8 @@ function isBriberyEvent(eventType: string): boolean {
     eventType === "bribe.offered" ||
     eventType === "bribe.accepted" ||
     eventType === "bribe.rejected" ||
-    eventType === "corruption.recorded"
+    eventType === "corruption.recorded" ||
+    eventType === "obligation.incurred"
   );
 }
 

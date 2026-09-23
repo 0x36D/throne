@@ -20,6 +20,7 @@ export * from "./court-session.ts";
 export * from "./grand-court.ts";
 export * from "./bribe-comparison.ts";
 export * from "./strategy-court.ts";
+export * from "./network-court.ts";
 
 export type BootstrapMessage = {
   readonly id: string;

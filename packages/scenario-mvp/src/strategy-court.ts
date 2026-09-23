@@ -211,6 +211,7 @@ async function actionDrafts(
           causalEventId: cause,
           payload: {
             bribeId: `bribe:${time}`,
+            chainId: `chain:${time}`,
             fromId: ids.officer,
             toId: recipient.id,
             amount: action.offerAmount,

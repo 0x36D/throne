@@ -37,4 +37,11 @@ FEAT-0004 已完成，结果见 [归档](archive/appointments.md)；现行规则
 - 统一行动空间：`packages/agent-runtime/src/actor-action.ts` + `packages/scenario-mvp/src/strategy-court.ts`（官员在 lobby/bribe/report/obey/defect 中自行选择，`canAttempt` 校验）。
 - 集成：`grand-court.ts` 接入贿赂（收买审计官 → 洗白审计 / 压案 / 罢免降级）。
 
-验证：`pnpm test`（27 文件 / 116 测试）、`pnpm typecheck`、`pnpm build` 均通过。
+### 恩庇与腐败网络（FEAT-0010 最小切片）
+
+- 契约：`BribeRecord` 增加 `chainId` / `parentBribeId` / `instruction`；新增 `ObligationRecord`。
+- 归约/派生：`bribe.passed_on` 以子报价（带 `parentBribeId`）表示；`obligation.incurred`；`deriveBriberyChain`、`derivePatronageShare`、`deriveObligations`、`deriveProtectionScore`。
+- 场景：`packages/scenario-mvp/src/network-court.ts` —— 上级行贿监管 → 监管转包 → 审计被洗白 → 立案 → 派系庇护（disputed）。
+- 验证：链 depth=1 / hops=2 / totalValue=70；patron share=50；protection=0.56；corruption 2 条；回放一致。
+
+验证：`pnpm test`（28 文件 / 121 测试）、`pnpm typecheck`、`pnpm build` 均通过。

@@ -124,6 +124,7 @@ describe("bribery layer", () => {
       state,
       event("bribe.offered", "b1", {
         bribeId: "bribe:1",
+        chainId: "chain:1",
         fromId: "actor:briber",
         toId: "actor:corrupt",
         amount: 40,
