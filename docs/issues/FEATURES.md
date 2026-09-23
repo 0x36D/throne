@@ -14,6 +14,7 @@ FEAT-0004 已完成，结果见 [归档](archive/appointments.md)；现行规则
 - FEAT-0007 问责与有据罢免，设计见 [ADR 0006](../architecture/0006-accountability-and-removal.md)。前置：FEAT-0006、任命层（已完成）。
 - FEAT-0008 角色与关系契约 v2，设计见 [ADR 0007](../architecture/0007-actor-and-relationship-contract.md)。前置：无。
 - FEAT-0009 党争路线与变法平衡，设计见 [ADR 0008](../architecture/0008-factional-reform-and-balance.md)。前置：FEAT-0006、0007、0008。
+- FEAT-0010 恩庇与腐败网络（多级贿赂 / 利益输送 / 结党营私），设计见 [ADR 0009](../architecture/0009-patronage-and-corruption-networks.md)。前置：FEAT-0006、0007、0009。
 
 以上均扩大 SPEC 范围（§7/§21/§26），需设计评审通过后再实现。
 
