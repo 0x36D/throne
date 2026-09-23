@@ -43,5 +43,6 @@ FEAT-0004 已完成，结果见 [归档](archive/appointments.md)；现行规则
 - 归约/派生：`bribe.passed_on` 以子报价（带 `parentBribeId`）表示；`obligation.incurred`；`deriveBriberyChain`、`derivePatronageShare`、`deriveObligations`、`deriveProtectionScore`。
 - 场景：`packages/scenario-mvp/src/network-court.ts` —— 上级行贿监管 → 监管转包 → 审计被洗白 → 立案 → 派系庇护（disputed）→ 独立审计反挖整条链（按跳立案）→ 有据追责（exposed + prosecution）。
 - 验证：链 depth=1 / hops=2 / totalValue=70；patron share=50；protection=0.56；corruption 2 条；暴露后 findings=4、removals=4（均 evidence）；回放一致。
+- 三层延伸：`packages/scenario-mvp/src/three-tier-court.ts` —— 皇帝(L1) → 宰执/台谏(L2) → 州县(L3)；变法裁决 → 逐级执行(实缴/侵吞/虚报) → 跨级贿赂链(governor→censor→magistrate) → 洗白审计 → 反挖暴露 → 逐跳有据追责。
 
 验证：`pnpm test`（28 文件 / 121 测试）、`pnpm typecheck`、`pnpm build` 均通过。
