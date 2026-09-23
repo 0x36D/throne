@@ -48,5 +48,6 @@ FEAT-0004 已完成，结果见 [归档](archive/appointments.md)；现行规则
 - 官僚体系：`packages/scenario-mvp/src/bureaucracy-cycle.ts` —— 1 皇帝 + 5 大臣 + 25 州县（5×5 名册）；每轮**显式游说**（`minister.lobbied`，谁拉谁可见）；**党派差异化贪腐**（变法派虚报高、守旧派侵占高，`deriveFalsification`/`deriveGraftRate`）；**级联聚合**（25 官各自实缴/上报 → 大臣汇总 → 皇帝只见顶层，上报 > 实际）。
 - 信念驱动决策（接大模型的钩子）：`packages/agent-runtime/src/official-policy.ts`（`OfficialDecisionPolicy` + `HeuristicOfficialPolicy` / `RecordedOfficialPolicy` / `HarnessOfficialPolicy`）+ `packages/scenario-mvp/src/official-belief.ts`（按角色可见信息构造 context；`strategy → 参数` 映射）。要点：**同一官员动机相同，仅因"对风险的认知"不同就采取不同策略**（感知被查→`request_information`；不知有查→`exaggerate`/`both`）；引擎掌数值，LLM 只选路线。换 LLM 适配器即可接真实 API。
 - 官僚体系三条反馈（每轮演化）：`bureaucracy-cycle.ts` 接上 **政策压力**（执政派按 `ruleStreak` 加码）、**审计暴露**（逢单轮查违规最重的 3 官+其大臣，下轮其感知上升而收敛）、**影响力滚雪球**（执政大臣每轮 +0.1、在野 -0.1，并作为下属的"庇护"）。派生 `offenceContext` 综合三者；实测 6 轮实际入库 60.2→63.16→63.6→66.56→63.58→66.62 逐轮不同。
+- 官僚体系长期演化（200 轮不静止）：新增 **政策翻转反向力**（执政越久 → 全体游说偏置逆向漂移 → 规则可回退）、**影响力均值回归**（不再顶到 2.0/0.1，而是收敛后随执政方来回）、**周期性外生冲击**（每 12 轮：整肃/危机/大赦）。实测 200 轮中规则在新法/旧法间多次翻转，影响力与失真持续波动，781ms 跑完。
 
 验证：`pnpm test`（28 文件 / 121 测试）、`pnpm typecheck`、`pnpm build` 均通过。

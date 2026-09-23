@@ -48,6 +48,11 @@ export type BureaucracyState = {
   readonly ruleStreak: number;
   readonly round: number;
   readonly exposedIds: readonly string[];
+  readonly exposedRound: number;
+  readonly shocks: readonly {
+    readonly round: number;
+    readonly kind: string;
+  }[];
   readonly audits: readonly {
     readonly round: number;
     readonly exposedIds: readonly string[];
@@ -194,6 +199,8 @@ export function createBureaucracyInitialState(): BureaucracyState {
     lobbyLog: [],
     ledger: [],
     exposedIds: [],
+    exposedRound: -1,
+    shocks: [],
     audits: [],
     ruleStreak: 0,
     timeline: [],
@@ -240,9 +247,12 @@ export function offenceContext(
     ? requiredActor(state, actor.parentId)
     : undefined;
   const shield = parent ? parent.influence : 0.5;
-  const exposedSelf = state.exposedIds.includes(actor.id);
+  const activeExposure = state.exposedRound === state.round - 1;
+  const exposedSelf = activeExposure && state.exposedIds.includes(actor.id);
   const exposedSuperior =
-    actor.parentId !== undefined && state.exposedIds.includes(actor.parentId);
+    activeExposure &&
+    actor.parentId !== undefined &&
+    state.exposedIds.includes(actor.parentId);
   const exposure = exposedSelf ? 0.5 : exposedSuperior ? 0.25 : 0;
   const auditRound = state.round % 2 === 1 ? 0.1 : 0;
   const detection = rounded(
@@ -250,7 +260,7 @@ export function offenceContext(
   );
   const pressure =
     actor.faction === rulingFaction
-      ? rounded(0.2 + 0.1 * state.ruleStreak)
+      ? rounded(0.15 + 0.02 * state.ruleStreak)
       : 0.05;
   const graftRate = rounded(
     clamp(
@@ -301,7 +311,7 @@ export function createBureaucracyModel(
       const tally = supportTally(state);
       committed.push({
         eventType:
-          tally.support > tally.oppose ? "rule.endorsed" : "rule.deferred",
+          tally.support > tally.oppose ? "rule.endorsed" : "rule.reverted",
         actorId: bureauIds.emperor,
         payload: { support: tally.support, oppose: tally.oppose },
       });
@@ -310,14 +320,17 @@ export function createBureaucracyModel(
       const rulingFaction: BureauFaction =
         nextRule === "new_law" ? "reform" : "restore";
 
-      // 影响力滚雪球：执政派系大臣影响力 +0.1，在野 -0.1
+      // 影响力：向执政方偏移，但带均值回归（不封顶、会来回）
       for (const minister of ministerDefs) {
+        const actor = requiredActor(state, minister.id);
+        const pull = minister.faction === rulingFaction ? 0.06 : -0.06;
+        const reversion = 0.1 * (actor.influence - 1);
         committed.push({
           eventType: "influence.changed",
           actorId: minister.id,
           payload: {
             actorId: minister.id,
-            delta: minister.faction === rulingFaction ? 0.1 : -0.1,
+            delta: rounded(pull - reversion),
           },
         });
       }
@@ -353,7 +366,6 @@ export function createBureaucracyModel(
       }
 
       // 审计暴露：逢单轮开查，暴露本回合违规最重的 3 名（含其大臣）
-      let exposedIds: readonly string[] = state.exposedIds;
       if (state.round % 2 === 1) {
         const top = [...offenders]
           .sort((a, b) => b.offence - a.offence)
@@ -364,13 +376,30 @@ export function createBureaucracyModel(
           const parentId = state.actors[entry.id]?.parentId;
           if (parentId) ids.push(parentId);
         }
-        exposedIds = ids;
         committed.push({
           eventType: "audit.conducted",
           actorId: bureauIds.emperor,
           payload: { round: state.round, exposedIds: ids },
         });
       }
+
+      // 周期性外生冲击：每 12 轮一次（整肃 / 危机 / 大赦）
+      const kinds = ["purge", "crisis", "amnesty"] as const;
+      const shockKind =
+        state.round > 0 && state.round % 12 === 0
+          ? (kinds[(state.round / 12) % kinds.length] ?? "crisis")
+          : undefined;
+      if (shockKind) {
+        committed.push({
+          eventType: "event.external",
+          actorId: bureauIds.emperor,
+          payload: { round: state.round, kind: shockKind },
+        });
+      }
+
+      let streak = nextRule === state.ruleValue ? state.ruleStreak + 1 : 0;
+      if (shockKind === "crisis") streak += 6;
+      if (shockKind === "amnesty") streak = 0;
 
       committed.push({
         eventType: "round.settled",
@@ -380,8 +409,7 @@ export function createBureaucracyModel(
           actual: rounded(actual),
           claimed: rounded(claimed),
           ruleValue: nextRule,
-          ruleStreak: nextRule === state.ruleValue ? state.ruleStreak + 1 : 0,
-          exposedIds,
+          ruleStreak: streak,
         },
       });
 
@@ -439,6 +467,15 @@ export function reduceBureaucracyState(
           { at: event.occurredAt, text: "New Law endorsed" },
         ],
       };
+    case "rule.reverted":
+      return {
+        ...state,
+        ruleValue: "old_law",
+        timeline: [
+          ...state.timeline,
+          { at: event.occurredAt, text: "Old Law restored" },
+        ],
+      };
     case "rule.deferred":
       return {
         ...state,
@@ -465,12 +502,12 @@ export function reduceBureaucracyState(
     }
     case "audit.conducted": {
       const exposedIds = readIds(event.payload.exposedIds);
+      const round = Number(event.payload.round);
       return {
         ...state,
-        audits: [
-          ...state.audits,
-          { round: Number(event.payload.round), exposedIds },
-        ],
+        exposedIds,
+        exposedRound: round,
+        audits: [...state.audits, { round, exposedIds }],
         timeline: [
           ...state.timeline,
           {
@@ -507,13 +544,68 @@ export function reduceBureaucracyState(
         },
       };
     }
-    case "round.settled": {
+    case "event.external": {
+      const kind = String(event.payload.kind);
       const round = Number(event.payload.round);
+      const actors: Record<string, Bureaucrat> = { ...state.actors };
+      let exposedIds = state.exposedIds;
+      let exposedRound = state.exposedRound;
+      if (kind === "purge") {
+        const ruling: BureauFaction =
+          state.ruleValue === "new_law" ? "reform" : "restore";
+        for (const minister of ministerDefs) {
+          if (minister.faction !== ruling) continue;
+          const actor = actors[minister.id];
+          if (!actor) continue;
+          actors[minister.id] = {
+            ...actor,
+            influence: rounded(clamp(actor.influence - 0.3, 0.1, 2)),
+          };
+        }
+        exposedIds = Object.values(state.actors)
+          .filter((a) => a.tier === 3 && a.faction === ruling)
+          .map((a) => a.id);
+        exposedRound = round;
+      } else if (kind === "amnesty") {
+        exposedIds = [];
+        exposedRound = -1;
+        for (const actor of Object.values(state.actors)) {
+          actors[actor.id] = { ...actor, lobbyBias: 0 };
+        }
+      } else if (kind !== "crisis") {
+        throw new Error(`Unknown external shock: ${kind}`);
+      }
       return {
         ...state,
+        actors,
+        exposedIds,
+        exposedRound,
+        shocks: [...state.shocks, { round, kind }],
+        timeline: [
+          ...state.timeline,
+          { at: event.occurredAt, text: `external shock: ${kind}` },
+        ],
+      };
+    }
+    case "round.settled": {
+      const round = Number(event.payload.round);
+      const streak = Number(event.payload.ruleStreak);
+      const drift =
+        (state.ruleValue === "new_law" ? -1 : 1) * (0.03 + 0.015 * streak);
+      const actors: Record<string, Bureaucrat> = { ...state.actors };
+      for (const minister of ministerDefs) {
+        const actor = actors[minister.id];
+        if (!actor) continue;
+        actors[minister.id] = {
+          ...actor,
+          lobbyBias: rounded(clamp(actor.lobbyBias + drift, -0.8, 0.8)),
+        };
+      }
+      return {
+        ...state,
+        actors,
         round: round + 1,
-        ruleStreak: Number(event.payload.ruleStreak),
-        exposedIds: readIds(event.payload.exposedIds),
+        ruleStreak: streak,
         ledger: [
           ...state.ledger,
           {
