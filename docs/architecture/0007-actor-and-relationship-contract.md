@@ -2,6 +2,8 @@
 
 Status: proposed
 
+The v2 contracts exist additively in the fork (`packages/shared-types/src/actor-contract.ts`) without replacing `PersistentActor`; the decision remains proposed pending upstream review.
+
 ## Context
 
 `PersistentActor` carries `motivations: JsonObject` (`packages/shared-types/src/agents.ts:103-110`), an untyped map that invites drift. The relationship contract defines seven kinds (`ControlRelationshipKind`, `organizations.ts:16-23`) with a `strength` in `[0, 1]`, so it cannot express opposition, enmity, or factional rivalry. There is no kinship relationship, no typed motivation profile, and no derived policy stance. This blocks modelling party conflict, patronage networks, and the ruler's dilemma between loyalty, competence, and policy alignment.

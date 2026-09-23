@@ -2,7 +2,7 @@
 
 Status: proposed
 
-This number was reserved by ADR 0003.
+This number was reserved by ADR 0003. A minimal slice exists in the fork (`packages/scenario-mvp/src/fiscal.ts`); the decision remains proposed pending upstream review.
 
 ## Context
 

@@ -6,5 +6,8 @@ export * from "./read-json.ts";
 export * from "./organizations.ts";
 export * from "./orders.ts";
 export * from "./offices.ts";
+export * from "./resources.ts";
+export * from "./accountability.ts";
+export * from "./actor-contract.ts";
 export * from "./run.ts";
 export * from "./time.ts";

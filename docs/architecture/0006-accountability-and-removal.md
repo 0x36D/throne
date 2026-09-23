@@ -2,6 +2,8 @@
 
 Status: proposed
 
+A minimal slice exists in the fork (`packages/scenario-mvp/src/accountability.ts`); the decision remains proposed pending upstream review.
+
 Depends on: ADR 0002 (fiscal return and audit), ADR 0003 (appointment layer).
 
 ## Context

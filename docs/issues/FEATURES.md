@@ -16,3 +16,14 @@ FEAT-0004 已完成，结果见 [归档](archive/appointments.md)；现行规则
 - FEAT-0009 党争路线与变法平衡，设计见 [ADR 0008](../architecture/0008-factional-reform-and-balance.md)。前置：FEAT-0006、0007、0008。
 
 以上均扩大 SPEC 范围（§7/§21/§26），需设计评审通过后再实现。
+
+## 实现进展（fork 最小切片）
+
+以下为在 fork 中按 ADR 落地的可运行最小切片，尚未合入上游，也未迁移既有场景：
+
+- FEAT-0006 资源与财政层：`packages/shared-types/src/resources.ts` + `packages/scenario-mvp/src/fiscal.ts`（账户、流量、上报/审计分离、守恒与非负校验）。
+- FEAT-0007 问责与有据罢免：`packages/shared-types/src/accountability.ts` + `packages/scenario-mvp/src/accountability.ts`（finding、证据强度、`deriveResistanceToRemoval`，有据罢免抵抗低于随意罢免）。
+- FEAT-0008 角色与关系契约 v2：`packages/shared-types/src/actor-contract.ts`（`MotivationProfile`、十一类关系 + valence、派生立场）；既有 `PersistentActor` 暂未替换。
+- FEAT-0009 党争路线与变法平衡：`packages/scenario-mvp/src/faction-reform.ts`（政策/规则/派生支持与抵抗）+ `packages/scenario-mvp/src/court.ts`（契约 v2 + 财政 + 问责 + 派系集成）。
+
+验证：`pnpm test`（22 文件 / 93 测试）、`pnpm typecheck`、`pnpm build` 均通过。

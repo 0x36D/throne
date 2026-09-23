@@ -2,6 +2,8 @@
 
 Status: proposed
 
+A minimal slice exists in the fork (`packages/scenario-mvp/src/faction-reform.ts` and `packages/scenario-mvp/src/court.ts`); the decision remains proposed pending upstream review.
+
 Depends on: ADR 0002 (resource and fiscal layer), ADR 0006 (accountability and removal), ADR 0007 (actor and relationship contract v2).
 
 ## Context
