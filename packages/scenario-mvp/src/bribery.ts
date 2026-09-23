@@ -1,6 +1,4 @@
 import type {
-  BribeDecision,
-  BribeDecisionInput,
   BribeRecord,
   CorruptionRecord,
   DomainEvent,
@@ -22,38 +20,6 @@ export const emptyBriberyState: BriberyState = {
   actors: {},
   bribes: {},
   corruption: [],
-};
-
-export type BribeDecisionPolicy = {
-  decide(input: BribeDecisionInput): BribeDecision;
-};
-
-const reference = 100;
-
-export function bribeBenefit(
-  amount: number,
-  target: MotivationProfile,
-): number {
-  const ratio = amount / (amount + reference);
-  return rounded(ratio * (0.5 + target.wealth));
-}
-
-export function bribeRisk(target: MotivationProfile): number {
-  return rounded(
-    target.proceduralLegality * 0.8 + (1 - target.riskTolerance) * 0.3,
-  );
-}
-
-export const heuristicBribePolicy: BribeDecisionPolicy = {
-  decide(input) {
-    const accept = input.benefit > input.risk;
-    return {
-      accept,
-      reason: accept
-        ? `gain ${input.benefit} outweighs risk ${input.risk}`
-        : `risk ${input.risk} outweighs gain ${input.benefit}`,
-    };
-  },
 };
 
 export function addBriberyActor(
@@ -159,8 +125,4 @@ function readStringArray(value: unknown): string[] {
     throw new Error("corruption evidenceRefs must be an array");
   }
   return value.map(String);
-}
-
-function rounded(value: number): number {
-  return Math.round(value * 1_000) / 1_000;
 }

@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
   simTime,
+  type BribeOfferView,
   type DomainEvent,
   type MotivationProfile,
 } from "@throne/shared-types";
 import {
+  HarnessBribePolicy,
+  HeuristicBribePolicy,
+  RecordedBribePolicy,
+  assertActorInstructions,
+  evaluateBribe,
+} from "@throne/agent-runtime/bribe";
+import {
   addBriberyActor,
-  bribeBenefit,
-  bribeRisk,
   deriveCorruptionEvidence,
   emptyBriberyState,
-  heuristicBribePolicy,
   reduceBriberyEvent,
   type BriberyState,
 } from "./bribery.ts";
@@ -48,6 +53,21 @@ const corrupt = profile({
   riskTolerance: 0.7,
 });
 
+function view(
+  recipientMotivations: MotivationProfile,
+  offerAmount = 40,
+): BribeOfferView {
+  return {
+    offerId: "bribe:1",
+    briberId: "actor:briber",
+    recipientId: "actor:recipient",
+    offerAmount,
+    targetRef: "audit:governor",
+    recipientMotivations,
+    recipientInfluence: 1,
+  };
+}
+
 function base(): BriberyState {
   let state = addBriberyActor(emptyBriberyState, {
     id: "actor:briber",
@@ -57,7 +77,10 @@ function base(): BriberyState {
     id: "actor:principled",
     motivations: principled,
   });
-  state = addBriberyActor(state, { id: "actor:corrupt", motivations: corrupt });
+  state = addBriberyActor(state, {
+    id: "actor:corrupt",
+    motivations: corrupt,
+  });
   return state;
 }
 
@@ -70,25 +93,29 @@ function event(
 }
 
 describe("bribery layer", () => {
+  it("derives benefit and risk from actor-visible motivations", () => {
+    const p = evaluateBribe(view(principled));
+    const c = evaluateBribe(view(corrupt));
+    expect(c.benefit).toBeGreaterThan(p.benefit);
+    expect(c.risk).toBeLessThan(p.risk);
+  });
+
   it("rejects a principled official and accepts a corrupt one", () => {
-    const principledDecision = heuristicBribePolicy.decide({
-      briberId: "actor:briber",
-      recipientId: "actor:principled",
-      amount: 40,
-      targetRef: "audit:governor",
-      benefit: bribeBenefit(40, principled),
-      risk: bribeRisk(principled),
-    });
-    const corruptDecision = heuristicBribePolicy.decide({
-      briberId: "actor:briber",
-      recipientId: "actor:corrupt",
-      amount: 40,
-      targetRef: "audit:governor",
-      benefit: bribeBenefit(40, corrupt),
-      risk: bribeRisk(corrupt),
-    });
-    expect(principledDecision.accept).toBe(false);
-    expect(corruptDecision.accept).toBe(true);
+    const policy = new HeuristicBribePolicy();
+    expect(policy.decide(view(principled)).accept).toBe(false);
+    expect(policy.decide(view(corrupt)).accept).toBe(true);
+  });
+
+  it("raises acceptance monotonically with wealth and lowers it with legality", () => {
+    const policy = new HeuristicBribePolicy();
+    const lowWealth = policy.decide(view(profile({ wealth: 0.2 }))).accept;
+    const highWealth = policy.decide(view(profile({ wealth: 0.95 }))).accept;
+    expect(Number(highWealth)).toBeGreaterThanOrEqual(Number(lowWealth));
+    const lawful = policy.decide(view(profile({ proceduralLegality: 0.95 })));
+    const lawless = policy.decide(view(profile({ proceduralLegality: 0.05 })));
+    expect(Number(lawless.accept)).toBeGreaterThanOrEqual(
+      Number(lawful.accept),
+    );
   });
 
   it("records offers, resolutions, and corruption evidence", () => {
@@ -104,7 +131,6 @@ describe("bribery layer", () => {
       }),
     );
     expect(state.bribes["bribe:1"]?.status).toBe("offered");
-
     state = reduceBriberyEvent(
       state,
       event("bribe.accepted", "b2", {
@@ -113,7 +139,6 @@ describe("bribery layer", () => {
       }),
     );
     expect(state.bribes["bribe:1"]?.status).toBe("accepted");
-
     state = reduceBriberyEvent(
       state,
       event("corruption.recorded", "b3", {
@@ -124,17 +149,38 @@ describe("bribery layer", () => {
         evidenceRefs: ["bribe:1"],
       }),
     );
-    expect(state.corruption).toHaveLength(1);
     expect(deriveCorruptionEvidence(state, "actor:corrupt")).toEqual([
       "corruption:1",
     ]);
   });
 
-  it("rejects unknown events and unresolvable bribes", () => {
-    const unknown: DomainEvent = event("typo.unknown", "x", {});
-    expect(() => reduceBriberyEvent(base(), unknown)).toThrow(
-      "Unhandled bribery event",
+  it("replays from a recorded decision and fails when none exists", () => {
+    const recorded = new RecordedBribePolicy(
+      new Map([["bribe:1", { accept: true, reason: "recorded" }]]),
     );
+    expect(recorded.decide(view(corrupt)).accept).toBe(true);
+    expect(() =>
+      recorded.decide({ ...view(principled), offerId: "bribe:missing" }),
+    ).toThrow("No recorded bribe decision");
+  });
+
+  it("requires non-empty actor instructions for a harness policy", () => {
+    expect(() => assertActorInstructions("")).toThrow(
+      "non-empty actor instructions",
+    );
+    expect(
+      () =>
+        new HarnessBribePolicy(
+          async () => ({ accept: false, reason: "x" }),
+          "",
+        ),
+    ).toThrow("non-empty actor instructions");
+  });
+
+  it("rejects unknown events and unresolvable bribes", () => {
+    expect(() =>
+      reduceBriberyEvent(base(), event("typo.unknown", "x", {})),
+    ).toThrow("Unhandled bribery event");
     expect(() =>
       reduceBriberyEvent(
         base(),

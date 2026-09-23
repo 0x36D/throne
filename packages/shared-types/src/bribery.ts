@@ -1,3 +1,4 @@
+import type { MotivationProfile } from "./actor-contract.ts";
 import type { SimTime } from "./time.ts";
 
 export type BribeStatus = "offered" | "accepted" | "rejected";
@@ -22,13 +23,16 @@ export type CorruptionRecord = {
   readonly at: SimTime;
 };
 
-export type BribeDecisionInput = {
+export type BribeOfferView = {
+  readonly offerId: string;
   readonly briberId: string;
   readonly recipientId: string;
-  readonly amount: number;
+  readonly offerAmount: number;
   readonly targetRef: string;
-  readonly benefit: number;
-  readonly risk: number;
+  readonly recipientMotivations: MotivationProfile;
+  readonly recipientInfluence: number;
+  readonly relationshipValence?: number;
+  readonly detectionHint?: number;
 };
 
 export type BribeDecision = {

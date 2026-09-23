@@ -33,14 +33,14 @@ import {
 } from "./accountability.ts";
 import {
   addBriberyActor,
-  bribeBenefit,
-  bribeRisk,
   emptyBriberyState,
-  heuristicBribePolicy,
   reduceBriberyEvent,
-  type BribeDecisionPolicy,
   type BriberyState,
 } from "./bribery.ts";
+import {
+  HeuristicBribePolicy,
+  type BribeDecisionPolicy,
+} from "@throne/agent-runtime/bribe";
 
 export type GrandActor = {
   readonly id: string;
@@ -329,10 +329,10 @@ export function createGrandInitialState(): GrandState {
 }
 
 export function createGrandModel(
-  bribePolicy: BribeDecisionPolicy = heuristicBribePolicy,
+  bribePolicy: BribeDecisionPolicy = new HeuristicBribePolicy(),
 ): DomainModel<GrandState> {
   return {
-    resolveBatch({ state, time, events }) {
+    async resolveBatch({ state, time, events }) {
       const committed: DomainEventDraft[] = [];
       const scheduled: ScheduledEventDraft[] = [];
       for (const event of events) {
@@ -517,14 +517,25 @@ export function createGrandModel(
             const amount = Number(event.payload.amount);
             const targetRef = String(event.payload.targetRef);
             const recipient = requiredActor(state, toId);
-            const decision = bribePolicy.decide({
-              briberId: ids.governor,
-              recipientId: toId,
-              amount,
-              targetRef,
-              benefit: bribeBenefit(amount, recipient.motivations),
-              risk: bribeRisk(recipient.motivations),
-            });
+            const relationship = Object.values(state.relationships).find(
+              (candidate) =>
+                candidate.sourceId === ids.governor &&
+                candidate.targetId === toId,
+            );
+            const decision = {
+              ...(await bribePolicy.decide({
+                offerId: ids.bribe,
+                briberId: ids.governor,
+                recipientId: toId,
+                offerAmount: amount,
+                targetRef,
+                recipientMotivations: recipient.motivations,
+                recipientInfluence: recipient.influence,
+                ...(relationship === undefined
+                  ? {}
+                  : { relationshipValence: relationship.valence }),
+              })),
+            };
             committed.push({
               eventType: "bribe.offered",
               actorId: ids.governor,
@@ -784,7 +795,7 @@ export function grandView(state: GrandState, time: SimTime): GrandView {
 
 export async function runGrandCourt(
   runId = "grand-court-demo",
-  bribePolicy: BribeDecisionPolicy = heuristicBribePolicy,
+  bribePolicy: BribeDecisionPolicy = new HeuristicBribePolicy(),
 ): Promise<GrandRun> {
   const store = new InMemoryEventStore();
   const kernel = new SimulationKernel(
