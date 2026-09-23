@@ -11,6 +11,7 @@ export * from "./player-decision.ts";
 export * from "./continuous-crisis.ts";
 export * from "./appointments.ts";
 export * from "./appointment-scenario.ts";
+export * from "./faction-reform.ts";
 
 export type BootstrapMessage = {
   readonly id: string;
