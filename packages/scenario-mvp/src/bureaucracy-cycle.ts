@@ -28,6 +28,9 @@ export type Bureaucrat = {
   readonly ideology: number;
   readonly motivations: MotivationProfile;
   readonly lobbyBias: number;
+  readonly traitGraft: number;
+  readonly traitFals: number;
+  readonly caution: number;
   readonly quota: number;
   readonly delivered: number;
   readonly claimed: number;
@@ -44,6 +47,7 @@ export type LobbyLogEntry = {
 
 export type BureaucracyState = {
   readonly actors: Readonly<Record<string, Bureaucrat>>;
+  readonly seed: string;
   readonly ruleValue: "new_law" | "old_law";
   readonly ruleStreak: number;
   readonly round: number;
@@ -136,7 +140,9 @@ function profile(start: Partial<MotivationProfile>): MotivationProfile {
   });
 }
 
-export function createBureaucracyInitialState(): BureaucracyState {
+export function createBureaucracyInitialState(
+  seed = "bureaucracy-default",
+): BureaucracyState {
   const actors: Record<string, Bureaucrat> = {
     [bureauIds.emperor]: {
       id: bureauIds.emperor,
@@ -147,6 +153,9 @@ export function createBureaucracyInitialState(): BureaucracyState {
       ideology: 0,
       motivations: profile({ loyaltyToState: 0.9 }),
       lobbyBias: 0,
+      traitGraft: 0,
+      traitFals: 0,
+      caution: 0,
       quota: 0,
       delivered: 0,
       claimed: 0,
@@ -163,6 +172,9 @@ export function createBureaucracyInitialState(): BureaucracyState {
       ideology: minister.ideology,
       motivations: profile({ ideologicalCommitment: 0.8 }),
       lobbyBias: 0,
+      traitGraft: hashUnit(minister.id, 1),
+      traitFals: hashUnit(minister.id, 2),
+      caution: 0,
       quota: 0,
       delivered: 0,
       claimed: 0,
@@ -185,6 +197,9 @@ export function createBureaucracyInitialState(): BureaucracyState {
           proceduralLegality: reform ? 0.35 : 0.25,
         }),
         lobbyBias: 0,
+        traitGraft: hashUnit(id, 1),
+        traitFals: hashUnit(id, 2),
+        caution: 0,
         quota: 0,
         delivered: 0,
         claimed: 0,
@@ -194,6 +209,7 @@ export function createBureaucracyInitialState(): BureaucracyState {
   }
   return {
     actors,
+    seed,
     ruleValue: "old_law",
     round: 0,
     lobbyLog: [],
@@ -207,28 +223,51 @@ export function createBureaucracyInitialState(): BureaucracyState {
   };
 }
 
+function hashUnit(id: string, salt: number): number {
+  let h = 2166136261 ^ salt;
+  for (let i = 0; i < id.length; i += 1) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.round((((h >>> 0) % 2000) / 1000 - 1) * 1000) / 1000;
+}
+
+function randomUnit(seed: string, round: number, salt: number): number {
+  let h = 2166136261 ^ salt;
+  const key = `${seed}:${round}`;
+  for (let i = 0; i < key.length; i += 1) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 100000) / 100000;
+}
+
+function externalShock(
+  seed: string,
+  round: number,
+): "purge" | "crisis" | "amnesty" | undefined {
+  if (round === 0) return undefined;
+  if (randomUnit(seed, round, 7) >= 0.07) return undefined;
+  const roll = randomUnit(seed, round, 11);
+  if (roll < 0.3) return "purge";
+  if (roll < 0.7) return "crisis";
+  return "amnesty";
+}
+
 export function deriveGraftRate(actor: Bureaucrat): number {
   const autonomy = actor.faction === "restore" ? 0.25 : 0.05;
-  return rounded(
-    clamp(
-      actor.motivations.wealth * (1 - actor.motivations.proceduralLegality) +
-        autonomy,
-      0,
-      0.6,
-    ),
-  );
+  const base =
+    actor.motivations.wealth * (1 - actor.motivations.proceduralLegality) +
+    autonomy;
+  return rounded(clamp(base * (1 + 0.35 * actor.traitGraft), 0, 0.75));
 }
 
 export function deriveFalsification(actor: Bureaucrat): number {
   const pressure = actor.faction === "reform" ? 0.4 : 0.1;
-  return rounded(
-    clamp(
-      pressure * (1 - actor.motivations.proceduralLegality) +
-        0.2 * actor.motivations.ambition,
-      0,
-      0.8,
-    ),
-  );
+  const base =
+    pressure * (1 - actor.motivations.proceduralLegality) +
+    0.2 * actor.motivations.ambition;
+  return rounded(clamp(base * (1 + 0.35 * actor.traitFals), 0, 0.9));
 }
 
 export type OffenceContext = {
@@ -247,16 +286,9 @@ export function offenceContext(
     ? requiredActor(state, actor.parentId)
     : undefined;
   const shield = parent ? parent.influence : 0.5;
-  const activeExposure = state.exposedRound === state.round - 1;
-  const exposedSelf = activeExposure && state.exposedIds.includes(actor.id);
-  const exposedSuperior =
-    activeExposure &&
-    actor.parentId !== undefined &&
-    state.exposedIds.includes(actor.parentId);
-  const exposure = exposedSelf ? 0.5 : exposedSuperior ? 0.25 : 0;
   const auditRound = state.round % 2 === 1 ? 0.1 : 0;
   const detection = rounded(
-    clamp(0.15 + exposure + auditRound - 0.05 * shield, 0, 1),
+    clamp(0.15 + 0.6 * actor.caution + auditRound - 0.05 * shield, 0, 1),
   );
   const pressure =
     actor.faction === rulingFaction
@@ -383,12 +415,8 @@ export function createBureaucracyModel(
         });
       }
 
-      // 周期性外生冲击：每 12 轮一次（整肃 / 危机 / 大赦）
-      const kinds = ["purge", "crisis", "amnesty"] as const;
-      const shockKind =
-        state.round > 0 && state.round % 12 === 0
-          ? (kinds[(state.round / 12) % kinds.length] ?? "crisis")
-          : undefined;
+      // 随机外生冲击（按种子伪随机，可复现）：整肃 / 危机 / 大赦
+      const shockKind = externalShock(state.seed, state.round);
       if (shockKind) {
         committed.push({
           eventType: "event.external",
@@ -503,8 +531,18 @@ export function reduceBureaucracyState(
     case "audit.conducted": {
       const exposedIds = readIds(event.payload.exposedIds);
       const round = Number(event.payload.round);
+      const actors: Record<string, Bureaucrat> = { ...state.actors };
+      for (const id of exposedIds) {
+        const actor = actors[id];
+        if (!actor) continue;
+        actors[id] = {
+          ...actor,
+          caution: rounded(clamp(actor.caution + 0.6, 0, 1)),
+        };
+      }
       return {
         ...state,
+        actors,
         exposedIds,
         exposedRound: round,
         audits: [...state.audits, { round, exposedIds }],
@@ -553,14 +591,18 @@ export function reduceBureaucracyState(
       if (kind === "purge") {
         const ruling: BureauFaction =
           state.ruleValue === "new_law" ? "reform" : "restore";
-        for (const minister of ministerDefs) {
-          if (minister.faction !== ruling) continue;
-          const actor = actors[minister.id];
-          if (!actor) continue;
-          actors[minister.id] = {
-            ...actor,
-            influence: rounded(clamp(actor.influence - 0.3, 0.1, 2)),
-          };
+        for (const actor of Object.values(state.actors)) {
+          if (actor.tier === 2 && actor.faction === ruling) {
+            actors[actor.id] = {
+              ...actor,
+              influence: rounded(clamp(actor.influence - 0.3, 0.1, 2)),
+            };
+          } else if (actor.tier === 3 && actor.faction === ruling) {
+            actors[actor.id] = {
+              ...actor,
+              caution: rounded(clamp(actor.caution + 0.7, 0, 1)),
+            };
+          }
         }
         exposedIds = Object.values(state.actors)
           .filter((a) => a.tier === 3 && a.faction === ruling)
@@ -570,7 +612,7 @@ export function reduceBureaucracyState(
         exposedIds = [];
         exposedRound = -1;
         for (const actor of Object.values(state.actors)) {
-          actors[actor.id] = { ...actor, lobbyBias: 0 };
+          actors[actor.id] = { ...actor, lobbyBias: 0, caution: 0 };
         }
       } else if (kind !== "crisis") {
         throw new Error(`Unknown external shock: ${kind}`);
@@ -599,6 +641,13 @@ export function reduceBureaucracyState(
         actors[minister.id] = {
           ...actor,
           lobbyBias: rounded(clamp(actor.lobbyBias + drift, -0.8, 0.8)),
+        };
+      }
+      for (const actor of Object.values(state.actors)) {
+        if (actor.tier !== 3 || actor.caution === 0) continue;
+        actors[actor.id] = {
+          ...actor,
+          caution: rounded(Math.max(0, actor.caution - 0.15)),
         };
       }
       return {
@@ -686,14 +735,20 @@ export function bureaucracyView(
 }
 
 export async function runBureaucracyCycle(
-  options: { runId?: string; rounds?: number; interval?: number } = {},
+  options: {
+    runId?: string;
+    rounds?: number;
+    interval?: number;
+    seed?: string;
+  } = {},
 ): Promise<BureaucracyRun> {
   const runId = options.runId ?? "bureaucracy-cycle-demo";
   const rounds = options.rounds ?? 4;
   const interval = options.interval ?? 20;
+  const seed = options.seed ?? "bureaucracy-default";
   const store = new InMemoryEventStore();
   const kernel = new SimulationKernel(
-    createBureaucracyInitialState(),
+    createBureaucracyInitialState(seed),
     createBureaucracyModel(rounds, interval),
     store,
     runId,
@@ -711,7 +766,11 @@ export async function runBureaucracyCycle(
   const records = await store.readAll();
   if (
     JSON.stringify(
-      replay(createBureaucracyInitialState(), records, reduceBureaucracyState),
+      replay(
+        createBureaucracyInitialState(seed),
+        records,
+        reduceBureaucracyState,
+      ),
     ) !== JSON.stringify(kernel.state)
   ) {
     throw new Error("Replay differs from live bureaucracy state");
