@@ -15,6 +15,7 @@ export * from "./faction-reform.ts";
 export * from "./fiscal.ts";
 export * from "./accountability.ts";
 export * from "./court.ts";
+export * from "./court-session.ts";
 
 export type BootstrapMessage = {
   readonly id: string;
