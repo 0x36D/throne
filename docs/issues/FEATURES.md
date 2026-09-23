@@ -45,5 +45,6 @@ FEAT-0004 已完成，结果见 [归档](archive/appointments.md)；现行规则
 - 验证：链 depth=1 / hops=2 / totalValue=70；patron share=50；protection=0.56；corruption 2 条；暴露后 findings=4、removals=4（均 evidence）；回放一致。
 - 三层延伸：`packages/scenario-mvp/src/three-tier-court.ts` —— 皇帝(L1) → 宰执/台谏(L2) → 州县(L3)；变法裁决 → 逐级执行(实缴/侵吞/虚报) → 跨级贿赂链(governor→censor→magistrate) → 洗白审计 → 反挖暴露 → 逐跳有据追责。
 - 周期与权力消长：`packages/scenario-mvp/src/policy-cycle.ts` —— 周期性朝议（SPEC §9.1 的最小实现）；政策反复摇摆（新法↔旧法），皇帝权威与派系权力互为反馈：强帝有据 → 权威升、政策在其掌控下摆动；弱帝搁置 → 权威崩、政策由大臣 imposed。派生量 `deriveAuthority`、`deriveFactionPower`（非单一权力标量）。
+- 官僚体系：`packages/scenario-mvp/src/bureaucracy-cycle.ts` —— 1 皇帝 + 5 大臣 + 25 州县（5×5 名册）；每轮**显式游说**（`minister.lobbied`，谁拉谁可见）；**党派差异化贪腐**（变法派虚报高、守旧派侵占高，`deriveFalsification`/`deriveGraftRate`）；**级联聚合**（25 官各自实缴/上报 → 大臣汇总 → 皇帝只见顶层，上报 > 实际）。
 
 验证：`pnpm test`（28 文件 / 121 测试）、`pnpm typecheck`、`pnpm build` 均通过。

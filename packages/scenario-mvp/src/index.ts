@@ -23,6 +23,7 @@ export * from "./strategy-court.ts";
 export * from "./network-court.ts";
 export * from "./three-tier-court.ts";
 export * from "./policy-cycle.ts";
+export * from "./bureaucracy-cycle.ts";
 
 export type BootstrapMessage = {
   readonly id: string;
