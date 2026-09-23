@@ -441,7 +441,7 @@ export function createNetworkModel(
                 actorId: ids.inspector,
                 causalEventId: event.id,
                 payload: {
-                  removalId: `removal:${finding.actorId}`,
+                  removalId: `removal:${finding.id}`,
                   actorId: finding.actorId,
                   officeId: finding.officeId,
                   basis: "evidence",

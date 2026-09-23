@@ -83,6 +83,9 @@ export function recordRemoval(
   removal: RemovalRecord,
 ): AccountabilityState {
   requiredActor(state, removal.actorId);
+  if (state.removals.some((entry) => entry.id === removal.id)) {
+    throw new Error(`Duplicate removal: ${removal.id}`);
+  }
   if (removal.basis === "evidence") {
     if (!removal.findingId) {
       throw new Error(
