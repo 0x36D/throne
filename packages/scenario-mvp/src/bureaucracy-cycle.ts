@@ -45,7 +45,13 @@ export type LobbyLogEntry = {
 export type BureaucracyState = {
   readonly actors: Readonly<Record<string, Bureaucrat>>;
   readonly ruleValue: "new_law" | "old_law";
+  readonly ruleStreak: number;
   readonly round: number;
+  readonly exposedIds: readonly string[];
+  readonly audits: readonly {
+    readonly round: number;
+    readonly exposedIds: readonly string[];
+  }[];
   readonly lobbyLog: readonly LobbyLogEntry[];
   readonly ledger: readonly {
     readonly round: number;
@@ -187,6 +193,9 @@ export function createBureaucracyInitialState(): BureaucracyState {
     round: 0,
     lobbyLog: [],
     ledger: [],
+    exposedIds: [],
+    audits: [],
+    ruleStreak: 0,
     timeline: [],
   };
 }
@@ -213,6 +222,53 @@ export function deriveFalsification(actor: Bureaucrat): number {
       0.8,
     ),
   );
+}
+
+export type OffenceContext = {
+  readonly detection: number;
+  readonly pressure: number;
+  readonly graftRate: number;
+  readonly falsification: number;
+};
+
+export function offenceContext(
+  state: BureaucracyState,
+  actor: Bureaucrat,
+  rulingFaction: BureauFaction,
+): OffenceContext {
+  const parent = actor.parentId
+    ? requiredActor(state, actor.parentId)
+    : undefined;
+  const shield = parent ? parent.influence : 0.5;
+  const exposedSelf = state.exposedIds.includes(actor.id);
+  const exposedSuperior =
+    actor.parentId !== undefined && state.exposedIds.includes(actor.parentId);
+  const exposure = exposedSelf ? 0.5 : exposedSuperior ? 0.25 : 0;
+  const auditRound = state.round % 2 === 1 ? 0.1 : 0;
+  const detection = rounded(
+    clamp(0.15 + exposure + auditRound - 0.05 * shield, 0, 1),
+  );
+  const pressure =
+    actor.faction === rulingFaction
+      ? rounded(0.2 + 0.1 * state.ruleStreak)
+      : 0.05;
+  const graftRate = rounded(
+    clamp(
+      deriveGraftRate(actor) * (1 - 0.7 * detection) +
+        (actor.faction === "restore" ? 0.1 * pressure : 0),
+      0,
+      0.75,
+    ),
+  );
+  const falsification = rounded(
+    clamp(
+      deriveFalsification(actor) * (1 - 0.7 * detection) +
+        (actor.faction === "reform" ? 0.15 * pressure : 0),
+      0,
+      0.9,
+    ),
+  );
+  return { detection, pressure, graftRate, falsification };
 }
 
 export function createBureaucracyModel(
@@ -251,21 +307,39 @@ export function createBureaucracyModel(
       });
       const nextRule: "new_law" | "old_law" =
         tally.support > tally.oppose ? "new_law" : "old_law";
+      const rulingFaction: BureauFaction =
+        nextRule === "new_law" ? "reform" : "restore";
+
+      // 影响力滚雪球：执政派系大臣影响力 +0.1，在野 -0.1
+      for (const minister of ministerDefs) {
+        committed.push({
+          eventType: "influence.changed",
+          actorId: minister.id,
+          payload: {
+            actorId: minister.id,
+            delta: minister.faction === rulingFaction ? 0.1 : -0.1,
+          },
+        });
+      }
 
       const quota = 4;
       let actual = 0;
       let claimed = 0;
+      const offenders: { id: string; offence: number }[] = [];
       for (const actor of Object.values(state.actors)) {
         if (actor.tier !== 3) continue;
-        const graftRate = deriveGraftRate(actor);
-        const falsification = deriveFalsification(actor);
-        const delivered = rounded(quota * (1 - graftRate));
+        const ctx = offenceContext(state, actor, rulingFaction);
+        const delivered = rounded(quota * (1 - ctx.graftRate));
         const grafted = rounded(quota - delivered);
         const claimedValue = rounded(
-          delivered + (quota - delivered) * falsification,
+          delivered + (quota - delivered) * ctx.falsification,
         );
         actual += delivered;
         claimed += claimedValue;
+        offenders.push({
+          id: actor.id,
+          offence: rounded(grafted + (claimedValue - delivered)),
+        });
         committed.push({
           eventType: "official.executed",
           actorId: actor.id,
@@ -277,6 +351,27 @@ export function createBureaucracyModel(
           payload: { officialId: actor.id, claimed: claimedValue },
         });
       }
+
+      // 审计暴露：逢单轮开查，暴露本回合违规最重的 3 名（含其大臣）
+      let exposedIds: readonly string[] = state.exposedIds;
+      if (state.round % 2 === 1) {
+        const top = [...offenders]
+          .sort((a, b) => b.offence - a.offence)
+          .slice(0, 3);
+        const ids: string[] = [];
+        for (const entry of top) {
+          ids.push(entry.id);
+          const parentId = state.actors[entry.id]?.parentId;
+          if (parentId) ids.push(parentId);
+        }
+        exposedIds = ids;
+        committed.push({
+          eventType: "audit.conducted",
+          actorId: bureauIds.emperor,
+          payload: { round: state.round, exposedIds: ids },
+        });
+      }
+
       committed.push({
         eventType: "round.settled",
         actorId: bureauIds.emperor,
@@ -285,6 +380,8 @@ export function createBureaucracyModel(
           actual: rounded(actual),
           claimed: rounded(claimed),
           ruleValue: nextRule,
+          ruleStreak: nextRule === state.ruleValue ? state.ruleStreak + 1 : 0,
+          exposedIds,
         },
       });
 
@@ -350,6 +447,39 @@ export function reduceBureaucracyState(
           { at: event.occurredAt, text: "policy deferred" },
         ],
       };
+    case "influence.changed": {
+      const id = String(event.payload.actorId);
+      const actor = requiredActor(state, id);
+      return {
+        ...state,
+        actors: {
+          ...state.actors,
+          [id]: {
+            ...actor,
+            influence: rounded(
+              clamp(actor.influence + Number(event.payload.delta), 0.1, 2),
+            ),
+          },
+        },
+      };
+    }
+    case "audit.conducted": {
+      const exposedIds = readIds(event.payload.exposedIds);
+      return {
+        ...state,
+        audits: [
+          ...state.audits,
+          { round: Number(event.payload.round), exposedIds },
+        ],
+        timeline: [
+          ...state.timeline,
+          {
+            at: event.occurredAt,
+            text: `audit exposed ${exposedIds.length} officials`,
+          },
+        ],
+      };
+    }
     case "official.executed": {
       const id = String(event.payload.officialId);
       const actor = requiredActor(state, id);
@@ -382,6 +512,8 @@ export function reduceBureaucracyState(
       return {
         ...state,
         round: round + 1,
+        ruleStreak: Number(event.payload.ruleStreak),
+        exposedIds: readIds(event.payload.exposedIds),
         ledger: [
           ...state.ledger,
           {
@@ -514,6 +646,11 @@ function requiredActor(state: BureaucracyState, id: string): Bureaucrat {
   const actor = state.actors[id];
   if (!actor) throw new Error(`Unknown bureaucrat: ${id}`);
   return actor;
+}
+
+function readIds(value: unknown): string[] {
+  if (!Array.isArray(value)) throw new Error("Exposed ids must be an array");
+  return value.map(String);
 }
 
 function rounded(value: number): number {
