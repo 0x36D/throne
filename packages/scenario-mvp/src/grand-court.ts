@@ -90,7 +90,7 @@ export type GrandView = {
     readonly reform: number;
     readonly restore: number;
   };
-  readonly resistanceEvidence: number;
+  readonly resistanceEvidence: number | undefined;
   readonly resistanceFlat: number;
   readonly support: number;
   readonly oppose: number;
@@ -622,17 +622,19 @@ export function deriveGrandStance(state: GrandState, actorId: string): number {
 }
 
 export function grandView(state: GrandState, time: SimTime): GrandView {
-  const resistanceEvidence = deriveResistanceToRemoval(
-    state.accountability,
-    ids.governor,
-    "evidence",
-    ids.finding,
-  );
   const resistanceFlat = deriveResistanceToRemoval(
     state.accountability,
     ids.governor,
     "flat",
   );
+  const resistanceEvidence = state.accountability.findings[ids.finding]
+    ? deriveResistanceToRemoval(
+        state.accountability,
+        ids.governor,
+        "evidence",
+        ids.finding,
+      ).score
+    : undefined;
   const tallyValue = state.vote ?? tally(state);
   return {
     simulationTime: time,
@@ -641,7 +643,7 @@ export function grandView(state: GrandState, time: SimTime): GrandView {
     treasuryReported: deriveReportedBalance(state.fiscal, ids.treasury),
     treasuryVerified: deriveVerifiedBalance(state.fiscal, ids.treasury),
     factionSupport: factionSupport(state),
-    resistanceEvidence: resistanceEvidence.score,
+    resistanceEvidence,
     resistanceFlat: resistanceFlat.score,
     support: tallyValue.support,
     oppose: tallyValue.oppose,

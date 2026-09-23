@@ -16,7 +16,8 @@ describe("grand court (full pipeline)", () => {
     expect(v.treasuryTruth).toBe(60);
     expect(v.treasuryReported).toBe(100);
     expect(v.treasuryVerified).toBe(60);
-    expect(v.resistanceEvidence).toBeLessThan(v.resistanceFlat);
+    expect(v.resistanceEvidence).toBeDefined();
+    expect(v.resistanceEvidence!).toBeLessThan(v.resistanceFlat);
     expect(v.removals).toBe(1);
     expect(v.privateMessages).toBe(2);
     expect(v.emperorInbox).toBe(0);
