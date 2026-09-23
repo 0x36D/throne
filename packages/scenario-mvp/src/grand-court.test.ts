@@ -21,6 +21,8 @@ describe("grand court (full pipeline)", () => {
     expect(v.removals).toBe(1);
     expect(v.privateMessages).toBe(2);
     expect(v.emperorInbox).toBe(0);
+    expect(v.bribeStatus).toBe("rejected");
+    expect(v.corruptionCount).toBe(0);
     expect(v.factionSupport.reform).toBeGreaterThan(0);
     expect(v.factionSupport.restore).toBeGreaterThan(0);
     expect(v.support).toBeGreaterThan(0);

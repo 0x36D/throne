@@ -8,6 +8,7 @@ export * from "./orders.ts";
 export * from "./offices.ts";
 export * from "./resources.ts";
 export * from "./accountability.ts";
+export * from "./bribery.ts";
 export * from "./actor-contract.ts";
 export * from "./run.ts";
 export * from "./time.ts";

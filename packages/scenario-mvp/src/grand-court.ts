@@ -31,6 +31,16 @@ import {
   reduceAccountabilityEvent,
   type AccountabilityState,
 } from "./accountability.ts";
+import {
+  addBriberyActor,
+  bribeBenefit,
+  bribeRisk,
+  emptyBriberyState,
+  heuristicBribePolicy,
+  reduceBriberyEvent,
+  type BribeDecisionPolicy,
+  type BriberyState,
+} from "./bribery.ts";
 
 export type GrandActor = {
   readonly id: string;
@@ -77,6 +87,7 @@ export type GrandState = {
   readonly petitions: readonly string[];
   readonly vote?: { readonly support: number; readonly oppose: number };
   readonly ruleValue: "new_law" | "old_law";
+  readonly bribery: BriberyState;
   readonly timeline: readonly GrandTimelineItem[];
 };
 
@@ -97,6 +108,8 @@ export type GrandView = {
   readonly emperorInbox: number;
   readonly privateMessages: number;
   readonly removals: number;
+  readonly bribeStatus: "offered" | "accepted" | "rejected" | undefined;
+  readonly corruptionCount: number;
   readonly timeline: readonly GrandTimelineItem[];
 };
 
@@ -116,9 +129,11 @@ export const grandIds = {
   governor: "actor:governor",
   treasury: "account:treasury",
   governorAccount: "account:governor",
+  simaAccount: "account:sima",
   governorship: "office:governorship",
   newLaw: "policy:new-law",
   finding: "finding:governor-diversion",
+  bribe: "bribe:governor-sima",
   relationshipWangLv: "relationship:wang-lv",
   relationshipSimaChancellor: "relationship:sima-chancellor",
   relationshipChancellorGovernor: "relationship:chancellor-governor",
@@ -270,6 +285,12 @@ export function createGrandInitialState(): GrandState {
     kind: "money",
     balance: 0,
   });
+  fiscal = createAccount(fiscal, {
+    id: ids.simaAccount,
+    ownerId: ids.sima,
+    kind: "money",
+    balance: 0,
+  });
 
   const accountability: AccountabilityState = {
     ...emptyAccountabilityState,
@@ -284,11 +305,20 @@ export function createGrandInitialState(): GrandState {
     relationships,
   };
 
+  let bribery: BriberyState = emptyBriberyState;
+  for (const actor of Object.values(actors)) {
+    bribery = addBriberyActor(bribery, {
+      id: actor.id,
+      motivations: actor.motivations,
+    });
+  }
+
   return {
     actors,
     relationships,
     fiscal,
     accountability,
+    bribery,
     policy: { id: ids.newLaw, title: "New Law", direction: "reform" },
     messages: {},
     observations: [],
@@ -298,7 +328,9 @@ export function createGrandInitialState(): GrandState {
   };
 }
 
-export function createGrandModel(): DomainModel<GrandState> {
+export function createGrandModel(
+  bribePolicy: BribeDecisionPolicy = heuristicBribePolicy,
+): DomainModel<GrandState> {
   return {
     resolveBatch({ state, time, events }) {
       const committed: DomainEventDraft[] = [];
@@ -356,18 +388,39 @@ export function createGrandModel(): DomainModel<GrandState> {
               },
             });
             break;
-          case "court.audit":
+          case "court.audit": {
+            const bribed =
+              state.bribery.bribes[ids.bribe]?.status === "accepted";
             committed.push({
               eventType: "audit.recorded",
               actorId: ids.sima,
               causalEventId: event.id,
               payload: {
                 returnId: String(event.payload.returnId),
-                verifiedBalance: Number(event.payload.verifiedBalance),
+                verifiedBalance: bribed
+                  ? 100
+                  : Number(event.payload.verifiedBalance),
               },
             });
             break;
-          case "court.finding":
+          }
+          case "court.finding": {
+            const bribed =
+              state.bribery.bribes[ids.bribe]?.status === "accepted";
+            if (bribed) {
+              committed.push({
+                eventType: "observation.recorded",
+                actorId: ids.sima,
+                causalEventId: event.id,
+                payload: {
+                  observationId: "observation:finding-suppressed",
+                  actorId: ids.sima,
+                  sourceId: ids.governor,
+                  text: "the censorial finding was suppressed after payment",
+                },
+              });
+              break;
+            }
             committed.push({
               eventType: "finding.recorded",
               actorId: ids.sima,
@@ -383,6 +436,7 @@ export function createGrandModel(): DomainModel<GrandState> {
               },
             });
             break;
+          }
           case "court.lobby": {
             const messageId = String(event.payload.messageId);
             committed.push({
@@ -458,7 +512,69 @@ export function createGrandModel(): DomainModel<GrandState> {
             });
             break;
           }
-          case "court.remove":
+          case "court.bribe": {
+            const toId = String(event.payload.toId);
+            const amount = Number(event.payload.amount);
+            const targetRef = String(event.payload.targetRef);
+            const recipient = requiredActor(state, toId);
+            const decision = bribePolicy.decide({
+              briberId: ids.governor,
+              recipientId: toId,
+              amount,
+              targetRef,
+              benefit: bribeBenefit(amount, recipient.motivations),
+              risk: bribeRisk(recipient.motivations),
+            });
+            committed.push({
+              eventType: "bribe.offered",
+              actorId: ids.governor,
+              causalEventId: event.id,
+              payload: {
+                bribeId: ids.bribe,
+                fromId: ids.governor,
+                toId,
+                amount,
+                targetRef,
+              },
+            });
+            committed.push({
+              eventType: decision.accept ? "bribe.accepted" : "bribe.rejected",
+              actorId: ids.governor,
+              causalEventId: event.id,
+              payload: { bribeId: ids.bribe, reason: decision.reason },
+            });
+            if (decision.accept) {
+              committed.push({
+                eventType: "resource.flowed",
+                actorId: ids.governor,
+                causalEventId: event.id,
+                payload: {
+                  flowId: `flow:bribe:${time}`,
+                  kind: "transfer",
+                  fromAccountId: ids.governorAccount,
+                  toAccountId: ids.simaAccount,
+                  amount,
+                  reason: "bribe payment",
+                },
+              });
+              committed.push({
+                eventType: "corruption.recorded",
+                actorId: ids.governor,
+                causalEventId: event.id,
+                payload: {
+                  corruptionId: "corruption:governor-sima",
+                  actorId: toId,
+                  bribeId: ids.bribe,
+                  amount,
+                  evidenceRefs: [ids.bribe],
+                },
+              });
+            }
+            break;
+          }
+          case "court.remove": {
+            const hasFinding =
+              state.accountability.findings[ids.finding] !== undefined;
             committed.push({
               eventType: "removal.recorded",
               actorId: ids.emperor,
@@ -467,11 +583,12 @@ export function createGrandModel(): DomainModel<GrandState> {
                 removalId: "removal:governor",
                 actorId: ids.governor,
                 officeId: ids.governorship,
-                basis: "evidence",
-                findingId: ids.finding,
+                basis: hasFinding ? "evidence" : "flat",
+                ...(hasFinding ? { findingId: ids.finding } : {}),
               },
             });
             break;
+          }
           default:
             throw new Error(`Unknown grand-court event: ${event.eventType}`);
         }
@@ -505,6 +622,13 @@ export function reduceGrandState(
       ...state,
       accountability: reduceAccountabilityEvent(state.accountability, event),
       timeline: [...state.timeline, item(event, event.eventType)],
+    };
+  }
+  if (isBriberyEvent(event.eventType)) {
+    return {
+      ...state,
+      bribery: reduceBriberyEvent(state.bribery, event),
+      timeline: [...state.timeline, item(event, describeBribery(event))],
     };
   }
   switch (event.eventType) {
@@ -652,17 +776,20 @@ export function grandView(state: GrandState, time: SimTime): GrandView {
     ).length,
     privateMessages: Object.keys(state.messages).length,
     removals: state.accountability.removals.length,
+    bribeStatus: state.bribery.bribes[ids.bribe]?.status,
+    corruptionCount: state.bribery.corruption.length,
     timeline: state.timeline,
   };
 }
 
 export async function runGrandCourt(
   runId = "grand-court-demo",
+  bribePolicy: BribeDecisionPolicy = heuristicBribePolicy,
 ): Promise<GrandRun> {
   const store = new InMemoryEventStore();
   const kernel = new SimulationKernel(
     createGrandInitialState(),
-    createGrandModel(),
+    createGrandModel(bribePolicy),
     store,
     runId,
   );
@@ -714,6 +841,12 @@ export async function runGrandCourt(
       scheduledAt: simTime(20),
       actorId: ids.governor,
       payload: { returnId: "return:governor", claimedBalance: 100 },
+    },
+    {
+      eventType: "court.bribe",
+      scheduledAt: simTime(22),
+      actorId: ids.governor,
+      payload: { toId: ids.sima, amount: 40, targetRef: "audit:governor" },
     },
     {
       eventType: "court.audit",
@@ -826,6 +959,28 @@ function isAccountabilityEvent(eventType: string): boolean {
     eventType === "finding.disputed" ||
     eventType === "removal.recorded"
   );
+}
+
+function isBriberyEvent(eventType: string): boolean {
+  return (
+    eventType === "bribe.offered" ||
+    eventType === "bribe.accepted" ||
+    eventType === "bribe.rejected" ||
+    eventType === "corruption.recorded"
+  );
+}
+
+function describeBribery(event: DomainEvent): string {
+  switch (event.eventType) {
+    case "bribe.offered":
+      return `bribe offered: ${String(event.payload.fromId)} -> ${String(event.payload.toId)} (${String(event.payload.amount)})`;
+    case "bribe.accepted":
+      return `bribe accepted (${String(event.payload.reason)})`;
+    case "bribe.rejected":
+      return `bribe rejected (${String(event.payload.reason)})`;
+    default:
+      return "corruption recorded";
+  }
 }
 
 function item(event: DomainEvent, text: string): GrandTimelineItem {

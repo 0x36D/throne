@@ -14,6 +14,7 @@ export * from "./appointment-scenario.ts";
 export * from "./faction-reform.ts";
 export * from "./fiscal.ts";
 export * from "./accountability.ts";
+export * from "./bribery.ts";
 export * from "./court.ts";
 export * from "./court-session.ts";
 export * from "./grand-court.ts";
