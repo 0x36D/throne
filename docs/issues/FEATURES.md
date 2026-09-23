@@ -46,5 +46,6 @@ FEAT-0004 已完成，结果见 [归档](archive/appointments.md)；现行规则
 - 三层延伸：`packages/scenario-mvp/src/three-tier-court.ts` —— 皇帝(L1) → 宰执/台谏(L2) → 州县(L3)；变法裁决 → 逐级执行(实缴/侵吞/虚报) → 跨级贿赂链(governor→censor→magistrate) → 洗白审计 → 反挖暴露 → 逐跳有据追责。
 - 周期与权力消长：`packages/scenario-mvp/src/policy-cycle.ts` —— 周期性朝议（SPEC §9.1 的最小实现）；政策反复摇摆（新法↔旧法），皇帝权威与派系权力互为反馈：强帝有据 → 权威升、政策在其掌控下摆动；弱帝搁置 → 权威崩、政策由大臣 imposed。派生量 `deriveAuthority`、`deriveFactionPower`（非单一权力标量）。
 - 官僚体系：`packages/scenario-mvp/src/bureaucracy-cycle.ts` —— 1 皇帝 + 5 大臣 + 25 州县（5×5 名册）；每轮**显式游说**（`minister.lobbied`，谁拉谁可见）；**党派差异化贪腐**（变法派虚报高、守旧派侵占高，`deriveFalsification`/`deriveGraftRate`）；**级联聚合**（25 官各自实缴/上报 → 大臣汇总 → 皇帝只见顶层，上报 > 实际）。
+- 信念驱动决策（接大模型的钩子）：`packages/agent-runtime/src/official-policy.ts`（`OfficialDecisionPolicy` + `HeuristicOfficialPolicy` / `RecordedOfficialPolicy` / `HarnessOfficialPolicy`）+ `packages/scenario-mvp/src/official-belief.ts`（按角色可见信息构造 context；`strategy → 参数` 映射）。要点：**同一官员动机相同，仅因"对风险的认知"不同就采取不同策略**（感知被查→`request_information`；不知有查→`exaggerate`/`both`）；引擎掌数值，LLM 只选路线。换 LLM 适配器即可接真实 API。
 
 验证：`pnpm test`（28 文件 / 121 测试）、`pnpm typecheck`、`pnpm build` 均通过。

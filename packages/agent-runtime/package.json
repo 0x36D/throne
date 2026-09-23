@@ -8,7 +8,8 @@
     "./policy": "./src/policy.ts",
     "./live": "./src/live-policy.ts",
     "./bribe": "./src/bribe-policy.ts",
-    "./action": "./src/actor-action.ts"
+    "./action": "./src/actor-action.ts",
+    "./official": "./src/official-policy.ts"
   },
   "dependencies": {
     "@deepseek-ai/dsh-sdk-client": "0.1.5-rc.2",
